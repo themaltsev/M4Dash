@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.41 — brand Setup and uninstaller icons
+
+- Use the M4Dash monitor logo as the Windows Setup executable, installer-window, and uninstaller icon.
+
 ## 0.1.40 — rename executable and install folder
 
 - Build and install the app as `M4Dash.exe` under `%LOCALAPPDATA%\Programs\M4Dash`.

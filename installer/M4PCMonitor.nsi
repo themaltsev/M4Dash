@@ -6,12 +6,14 @@ ManifestDPIAware true
 !include "LogicLib.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.1.39"
+  !define APP_VERSION "0.1.41"
 !endif
 !define APP_NAME "M4Dash"
 !define APP_EXE "M4Dash.exe"
 !define APP_STAGE "artifacts\M4Dash-Portable-v${APP_VERSION}-x64"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\M4PCMonitor"
+!define MUI_ICON "assets\M4PCMonitor.ico"
+!define MUI_UNICON "assets\M4PCMonitor.ico"
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "artifacts\M4Dash-Setup-${APP_VERSION}-x64.exe"
