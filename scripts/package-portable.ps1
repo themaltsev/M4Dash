@@ -9,12 +9,13 @@ if (!(Test-Path -LiteralPath $exe)) { throw "Build output not found: $exe" }
 if (!(Test-Path -LiteralPath $icon)) { throw "Portable icon not found: $icon" }
 if (!(Test-Path -LiteralPath $readme)) { throw "Portable readme not found: $readme" }
 New-Item -ItemType Directory -Force -Path $out | Out-Null
-$stage = Join-Path $out 'M4PCMonitor-Portable-v0.1.0-x64'
+$version = (Select-String -Path (Join-Path $root 'Cargo.toml') -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+$stage = Join-Path $out "M4PCMonitor-Portable-v$version-x64"
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item -LiteralPath $exe -Destination $stage
 Copy-Item -LiteralPath $icon -Destination $stage
 Copy-Item -LiteralPath $readme -Destination $stage
-$zip = Join-Path $out 'M4PCMonitor-Portable-v0.1.0-x64.zip'
+$zip = Join-Path $out "M4PCMonitor-Portable-v$version-x64.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
 Get-FileHash -Algorithm SHA256 $zip

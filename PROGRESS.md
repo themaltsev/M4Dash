@@ -14,6 +14,7 @@
 - Реальные показатели CPU utilization/frequency, RAM, volumes, network, NVIDIA GPU через NVML.
 - Дисковые и сетевые скорости вычисляются из дельт счётчиков.
 - Runtime state LM Studio из CLI/API; `lms.exe` запускается с `CREATE_NO_WINDOW`.
+- Дочерний `lms.exe` завершается при закрытии приложения, не оставляя runtime-stream orphan.
 - Portable app icon; отдельная иконка у desktop shortcut.
 - На HOME-PC проверен запуск через фактический `.lnk` в интерактивном пользовательском сеансе; приложение оставлено запущенным.
 

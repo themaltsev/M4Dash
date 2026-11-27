@@ -41,7 +41,10 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Settings) {
                     command
                         .args(["log", "stream", "--source", "runtime"])
                         .stdout(std::process::Stdio::piped())
-                        .stderr(std::process::Stdio::null());
+                        .stderr(std::process::Stdio::null())
+                        // The collector owns this long-running CLI process; never orphan it when
+                        // the app closes or its runtime is shut down.
+                        .kill_on_drop(true);
                     #[cfg(windows)]
                     command.creation_flags(CREATE_NO_WINDOW);
                     let mut child = match command.spawn() {

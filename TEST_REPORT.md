@@ -42,3 +42,9 @@
 - В дереве процесса M4PCMonitor → lms.exe присутствует console host процесс, но Win32 enumeration видимых окон процесса нашёл только окна M4 PC Monitor, без видимого окна терминала.
 - `settings.json` создан автоматически рядом с EXE; автозапуск в HKCU Run отсутствует.
 - TrafficMonitor не изменялся.
+
+## 2026-11-27 — Portable v0.1.1 lifecycle hotfix
+
+- Добавлено `kill_on_drop(true)` для управляемого `lms.exe`; сборка `cargo check` и release cross-build успешны.
+- EXE обновлён в той же Portable-папке, существующий `settings.json` не заменялся.
+- Ярлык `.lnk` снова запустил окно в интерактивной сессии HOME-PC; instance оставлен запущенным.

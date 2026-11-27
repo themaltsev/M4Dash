@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — Portable runtime hotfix
+
+- Kill the LM Studio runtime CLI when M4 PC Monitor exits, preventing orphaned collector processes.
+
 ## 0.1.0 — разработка
 
 - Создан отдельный Rust/egui каркас.
