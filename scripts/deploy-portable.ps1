@@ -39,8 +39,8 @@ $shortcut.Save()
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 Remove-ItemProperty -Path $runKey -Name 'M4PCMonitor' -ErrorAction SilentlyContinue
 $taskName = 'M4PCMonitor-Portable-LaunchOnce'
-$action = New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'explorer.exe') -Argument "`"$shortcutPath`""
-$principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+$action = New-ScheduledTaskAction -Execute $exe -WorkingDirectory $destination
+$principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
 Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Force | Out-Null
 Start-ScheduledTask -TaskName $taskName
 Start-Sleep -Seconds 5

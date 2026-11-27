@@ -32,6 +32,8 @@ pub struct Snapshot {
 pub struct ExtraSnapshot {
     pub cpu_temperature_c: Option<f32>,
     pub cpu_temperature_sensor: Option<String>,
+    pub memory_type: Option<String>,
+    pub memory_speed_mhz: Option<u32>,
     pub motherboard_name: Option<String>,
     pub motherboard_sensors: Vec<BoardSensor>,
     pub provider_error: Option<String>,

@@ -1,5 +1,14 @@
 # Test report
 
+## 2026-11-27 — Portable v0.1.14 taskbar behavior / v0.1.15 font import
+
+- `cargo fmt --all`, `cargo check --target x86_64-pc-windows-gnu`: passed for v0.1.15 source after adding custom-font picker/registration. Release and HOME-PC deployment of v0.1.15 remain pending.
+- v0.1.14 release build passed and was deployed to `%LOCALAPPDATA%\M4 PC Monitor Portable`; `settings.json` remained 1089 bytes with original timestamp, desktop `.lnk` target/icon resolve to the persistent EXE, HKCU Run value absent.
+- Interactive HOME-PC desktop capture showed changing nonzero metrics (CPU ~29%, GPU ~1%/53°C, aggregate network ~8.6/8.9 Mb/s, disk counters and CPU frequency), aligned immediately left of the tray notification arrow. Data/style hash changes now invalidate and synchronously repaint the native GDI child.
+- User font addition in v0.1.15 opens the Windows TTF/OTF picker, parses the family name, copies the font under Portable `fonts/`, records only the relative filename in `settings.json`, loads it into egui and registers a process-private GDI font. It does not install fonts system-wide.
+- CPU temperature is still N/A in taskbar output; despite an earlier direct provider probe, propagation into the displayed snapshot remains unresolved. LM Studio had no model loaded in the latest screenshot.
+- NSIS and TrafficMonitor are untouched; autostart remains disabled.
+
 ## 2026-11-27 — первичный preflight
 
 - GitHub repository reachability: успешна, репозиторий пустой.

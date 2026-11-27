@@ -4,6 +4,29 @@ use serde::{Deserialize, Serialize};
 use std::os::windows::ffi::OsStrExt;
 use std::{collections::BTreeMap, fs, path::PathBuf};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SpeedUnit {
+    #[default]
+    MebiBytesPerSecond,
+    MegaBitsPerSecond,
+}
+
+impl SpeedUnit {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::MebiBytesPerSecond => "MiB/s",
+            Self::MegaBitsPerSecond => "Mb/s",
+        }
+    }
+
+    pub fn value(self, bytes_per_second: u64) -> f64 {
+        match self {
+            Self::MebiBytesPerSecond => bytes_per_second as f64 / 1_048_576.0,
+            Self::MegaBitsPerSecond => bytes_per_second as f64 * 8.0 / 1_000_000.0,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -22,8 +45,12 @@ pub struct Settings {
     pub show_motherboard: bool,
     pub disk_visibility: BTreeMap<String, bool>,
     pub network_visibility: BTreeMap<String, bool>,
+    pub disk_speed_units: BTreeMap<String, SpeedUnit>,
+    pub network_speed_unit: SpeedUnit,
+    pub custom_fonts: BTreeMap<String, String>,
     pub custom_names: BTreeMap<String, String>,
     pub taskbar_order: Vec<String>,
+    pub column_spacing_px: u16,
     pub font_size: f32,
     pub font_family: String,
     pub text_color: [u8; 3],
@@ -47,8 +74,12 @@ impl Default for Settings {
             show_motherboard: true,
             disk_visibility: BTreeMap::new(),
             network_visibility: BTreeMap::new(),
+            disk_speed_units: BTreeMap::new(),
+            network_speed_unit: SpeedUnit::default(),
+            custom_fonts: BTreeMap::new(),
             custom_names: BTreeMap::new(),
             taskbar_order: Vec::new(),
+            column_spacing_px: 16,
             font_size: 14.0,
             font_family: "Segoe UI".into(),
             text_color: [235, 235, 235],

@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.1.16 — grouped taskbar layout and single instance
+
+- Group output into three two-line columns (network receive/send, CPU/RAM, GPU/LLM) and keep CPU metrics on one unwrapped line.
+- Include RAM type and configured speed when SMBIOS provides it; log LibreHardwareMonitor startup/sample status and flush its JSON stream for temperature diagnosis.
+- Hide disabled blocks/devices from the taskbar-order editor, remove the now-redundant Units tab, and prevent duplicate app/taskbar instances.
+
+## 0.1.15 — Portable custom fonts
+
+- Add a TTF/OTF font picker, copy the selected font to the Portable `fonts` directory, and save its family/file mapping beside the EXE.
+- Load custom fonts in the settings UI and register them as process-private GDI fonts for taskbar output; no system-wide install is performed.
+
+## 0.1.14 — live taskbar updates and speed units
+
+- Redraw taskbar output when metrics or visual style change and align text to the notification area/tray arrow.
+- Add separate MiB/s or Mb/s selectors for aggregate network and each disk; remove ineffective interface rename fields.
+
+## 0.1.13 — keep metrics clear of pinned taskbar icons
+
+- Add a Win11 composition-host gutter after the legacy task-list rectangle to avoid painting over search and pinned application buttons.
+
+## 0.1.12 — taskbar control-area fallback
+
+- Use the Windows 11 `ReBarWindow32` bounds when the nested task-list HWND is not directly discoverable, so metrics start after pinned applications.
+
+## 0.1.11 — reserve Windows 11 taskbar controls
+
+- Position the metric area after the actual task-list/search control and before the notification area, preventing overlap with Start, search, and pinned app icons.
+
+## 0.1.10 — TrafficMonitor-style taskbar hosting
+
+- Create the layered taskbar renderer as a top-level native window, then parent it to `Shell_TrayWnd` and explicitly switch its style to `WS_CHILD`, matching TrafficMonitor's working HWND lifecycle.
+- Treat the null previous-parent return from `SetParent` as success when `GetParent` confirms the new parent.
+- Limit startup diagnostic messages to one entry per failure class.
+
+## 0.1.9 — taskbar startup diagnostics
+
+- Record one-time taskbar renderer/window creation diagnostics next to the portable executable to make HWND failures actionable.
+
+## 0.1.8 — Windows 11 composition visibility fix
+
+- Use the layered color-key GDI rendering path used by TrafficMonitor so the taskbar composition bridge does not cover metric text.
+
+## 0.1.7 — native Windows 11 taskbar child
+
+- Replace the secondary egui viewport and after-the-fact HWND lookup with a native Win32 child window created directly under `Shell_TrayWnd`.
+- Render the configured font, color, and two taskbar rows in the child window; position it between the Start and notification-area windows when Explorer exposes them.
+
 ## 0.1.6 — taskbar child hosting, font selector, CPU fallback
 
 - Host the text renderer as a child window of `Shell_TrayWnd`, not a topmost window floating over the desktop.
@@ -41,3 +88,8 @@
 - Добавлены базовые hardware snapshots (sysinfo) и прямой NVIDIA NVML provider.
 - Добавлен постоянный runtime-stream reader LM Studio и начальный parser событий PP/TG/lifecycle.
 - Добавлены базовые вкладки настроек и атомарная запись конфигурации.
+## 0.1.14 — live appearance and speed units
+
+- Force an immediate native taskbar repaint when font family, size, or text color changes, even when metric text is unchanged.
+- Add selectable MiB/s or Mb/s units for aggregate network rates and each disk.
+- Remove ineffective per-interface rename fields; interface checkboxes only control which counters contribute to the aggregate.

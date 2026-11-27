@@ -25,6 +25,13 @@ fn main() -> Result<()> {
         .with_target(false)
         .init();
 
+    let (instance_mutex, already_running) = single_instance_mutex()?;
+    if already_running {
+        activate_existing_window();
+        let _ = unsafe { windows::Win32::Foundation::CloseHandle(instance_mutex) };
+        return Ok(());
+    }
+
     let settings = config::Settings::load()?;
     let snapshot = Arc::new(RwLock::new(hardware::Snapshot::default()));
     let extra = Arc::new(RwLock::new(hardware::ExtraSnapshot::default()));
@@ -48,7 +55,7 @@ fn main() -> Result<()> {
             .with_icon(std::sync::Arc::new(app::icon_data())),
         ..Default::default()
     };
-    eframe::run_native(
+    let result = eframe::run_native(
         "M4 PC Monitor",
         options,
         Box::new(move |_cc| {
@@ -57,7 +64,46 @@ fn main() -> Result<()> {
             )))
         }),
     )
-    .map_err(|e| anyhow::anyhow!(e.to_string()))
+    .map_err(|e| anyhow::anyhow!(e.to_string()));
+    let _ = unsafe { windows::Win32::Foundation::CloseHandle(instance_mutex) };
+    result
+}
+
+#[cfg(windows)]
+fn single_instance_mutex() -> Result<(windows::Win32::Foundation::HANDLE, bool)> {
+    use std::hash::{Hash, Hasher};
+    use windows::{
+        core::PCWSTR,
+        Win32::{
+            Foundation::{GetLastError, ERROR_ALREADY_EXISTS},
+            System::Threading::CreateMutexW,
+        },
+    };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    std::env::current_exe()?.hash(&mut hasher);
+    let name: Vec<u16> = format!("Local\\M4PCMonitor-{:016x}\0", hasher.finish())
+        .encode_utf16()
+        .collect();
+    let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr()))? };
+    let already_running = unsafe { GetLastError() } == ERROR_ALREADY_EXISTS;
+    Ok((handle, already_running))
+}
+
+#[cfg(windows)]
+fn activate_existing_window() {
+    use windows::{
+        core::PCWSTR,
+        Win32::UI::WindowsAndMessaging::{
+            FindWindowW, SetForegroundWindow, ShowWindow, SW_RESTORE,
+        },
+    };
+    let title: Vec<u16> = "M4 PC Monitor\0".encode_utf16().collect();
+    if let Ok(window) = unsafe { FindWindowW(PCWSTR::null(), PCWSTR(title.as_ptr())) } {
+        unsafe {
+            let _ = ShowWindow(window, SW_RESTORE);
+            let _ = SetForegroundWindow(window);
+        }
+    }
 }
 
 #[cfg(not(windows))]
