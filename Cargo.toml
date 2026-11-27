@@ -1,11 +1,11 @@
 [package]
 name = "m4-pc-monitor"
-version = "0.1.38"
+version = "0.1.39"
 edition = "2021"
 description = "Compact Windows hardware and local LLM monitor"
 
 [[bin]]
-name = "M4PCMonitor"
+name = "M4Dash"
 path = "src/main.rs"
 
 [dependencies]

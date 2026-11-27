@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.39 — rename executable and install folder
+
+- Build and install the app as `M4Dash.exe` under `%LOCALAPPDATA%\Programs\M4Dash`.
+- Migrate settings, custom fonts, and autostart target from the previous M4 PC Monitor install.
+- Register the branded ICO as the installed-app icon in Windows Settings and use it on M4Dash shortcuts.
+- Publish only M4Dash-named Setup and Portable assets; remove legacy-name Setup aliases.
+
 ## 0.1.38 — M4Dash release branding and documentation
 
 - Rename Windows Setup and Portable release assets to M4Dash and use M4Dash as the GitHub release title.

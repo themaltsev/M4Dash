@@ -74,8 +74,23 @@ pub fn set_enabled(enabled: bool) -> Result<()> {
         .context("cannot open current-user Run registry key")?;
 
     let result = if enabled {
-        let executable: PathBuf =
+        let current_executable: PathBuf =
             std::env::current_exe().context("cannot locate portable executable")?;
+        let executable = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .map(|local_app_data| {
+                let legacy = local_app_data.join("Programs").join("M4 PC Monitor");
+                if current_executable.parent().is_some_and(|parent| {
+                    parent
+                        .to_string_lossy()
+                        .eq_ignore_ascii_case(&legacy.to_string_lossy())
+                }) {
+                    local_app_data.join("Programs").join("M4Dash.exe")
+                } else {
+                    current_executable.clone()
+                }
+            })
+            .unwrap_or(current_executable);
         let command = format!("\"{}\"", executable.display());
         let mut data: Vec<u16> = command.encode_utf16().collect();
         data.push(0);

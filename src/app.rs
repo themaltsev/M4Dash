@@ -441,9 +441,8 @@ fn add_language_font_fallback(
 }
 
 fn portable_font_dir() -> PathBuf {
-    std::env::current_exe()
+    crate::config::Settings::data_dir()
         .ok()
-        .and_then(|path| path.parent().map(Path::to_path_buf))
         .unwrap_or_else(|| PathBuf::from("."))
         .join("fonts")
 }

@@ -10,10 +10,10 @@
 
 Choose either package from the [latest release](https://github.com/themaltsev/M4Dash/releases/latest):
 
-- **Windows Setup** (`M4Dash-Setup-<version>-x64.exe`) installs the app for the current user and creates M4Dash shortcuts in Start Menu and on the Desktop. The existing installation folder is retained so in-place upgrades keep working.
-- **Portable** (`M4Dash-Portable-v<version>-x64.zip`) can be extracted to any writable folder. Run `M4PCMonitor.exe` and keep `settings.json` beside it when replacing or moving the app files.
+- **Windows Setup** (`M4Dash-Setup-<version>-x64.exe`) installs the app for the current user under `%LOCALAPPDATA%\Programs\M4Dash` and creates M4Dash shortcuts.
+- **Portable** (`M4Dash-Portable-v<version>-x64.zip`) can be extracted to any writable folder. Run `M4Dash.exe` and keep `settings.json` beside it when replacing or moving the app files.
 
-The app stores its settings next to the executable. Portable users should choose a folder where their account can write files.
+The app stores its settings next to the executable. When upgrading from M4 PC Monitor, Setup copies the settings and custom fonts into the new M4Dash folder. Portable users should choose a folder where their account can write files.
 
 ## What it monitors
 

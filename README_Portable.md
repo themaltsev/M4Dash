@@ -2,7 +2,7 @@
 
 1. Windows: можно использовать Portable ZIP `M4Dash-Portable-v<version>-x64.zip` или установщик `M4Dash-Setup-<version>-x64.exe`.
 2. Для Portable распакуйте все файлы архива в доступную для записи папку (EXE, ICO, `hardware-sensors.ps1`, `LibreHardwareMonitorLib.dll` и лицензию).
-3. Запустите `M4PCMonitor.exe`.
+3. Запустите `M4Dash.exe`.
 4. Первый запуск создаёт `settings.json` рядом с EXE. Настройки сохраняются при обновлении как Portable, так и через Setup.
 5. В архиве Portable также есть каталог `icons/` с SVG-исходником монитора с графиком пульса и вариантами иконок.
 

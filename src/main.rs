@@ -105,7 +105,6 @@ fn main() -> Result<()> {
 
 #[cfg(windows)]
 fn single_instance_mutex() -> Result<(windows::Win32::Foundation::HANDLE, bool)> {
-    use std::hash::{Hash, Hasher};
     use windows::{
         core::PCWSTR,
         Win32::{
@@ -113,11 +112,7 @@ fn single_instance_mutex() -> Result<(windows::Win32::Foundation::HANDLE, bool)>
             System::Threading::CreateMutexW,
         },
     };
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    std::env::current_exe()?.hash(&mut hasher);
-    let name: Vec<u16> = format!("Local\\M4PCMonitor-{:016x}\0", hasher.finish())
-        .encode_utf16()
-        .collect();
+    let name: Vec<u16> = "Local\\M4Dash\0".encode_utf16().collect();
     let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr()))? };
     let already_running = unsafe { GetLastError() } == ERROR_ALREADY_EXISTS;
     Ok((handle, already_running))

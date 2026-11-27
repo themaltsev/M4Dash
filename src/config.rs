@@ -248,12 +248,26 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn path() -> Result<PathBuf> {
+    pub fn data_dir() -> Result<PathBuf> {
         let exe = std::env::current_exe().context("cannot locate portable executable")?;
         let dir = exe
             .parent()
             .context("portable executable has no parent directory")?;
-        Ok(dir.join("settings.json"))
+        let local_app_data = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
+        if let Some(local_app_data) = local_app_data {
+            let legacy = local_app_data.join("Programs").join("M4 PC Monitor");
+            if dir
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&legacy.to_string_lossy())
+            {
+                return Ok(local_app_data.join("Programs").join("M4Dash"));
+            }
+        }
+        Ok(dir.to_path_buf())
+    }
+
+    pub fn path() -> Result<PathBuf> {
+        Ok(Self::data_dir()?.join("settings.json"))
     }
     pub fn load() -> Result<Self> {
         let path = Self::path()?;

@@ -3,18 +3,19 @@ RequestExecutionLevel user
 ManifestDPIAware true
 
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.1.38"
+  !define APP_VERSION "0.1.39"
 !endif
 !define APP_NAME "M4Dash"
-!define APP_EXE "M4PCMonitor.exe"
+!define APP_EXE "M4Dash.exe"
 !define APP_STAGE "artifacts\M4Dash-Portable-v${APP_VERSION}-x64"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\M4PCMonitor"
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "artifacts\M4Dash-Setup-${APP_VERSION}-x64.exe"
-InstallDir "$LOCALAPPDATA\Programs\M4 PC Monitor"
+InstallDir "$LOCALAPPDATA\Programs\M4Dash"
 InstallDirRegKey HKCU "Software\M4PCMonitor" "InstallDir"
 ShowInstDetails show
 ShowUnInstDetails show
@@ -31,18 +32,65 @@ ShowUnInstDetails show
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "Russian"
 
+Var PreviousInstallDir
+Var LegacyInstallDir
+Function .onInit
+  StrCpy $PreviousInstallDir $INSTDIR
+  StrCpy $LegacyInstallDir "$LOCALAPPDATA\Programs\M4 PC Monitor"
+  StrCmp /I $INSTDIR "$LegacyInstallDir" 0 init_done
+  StrCpy $INSTDIR "$LOCALAPPDATA\Programs\M4Dash"
+init_done:
+FunctionEnd
+Function un.onInit
+  StrCpy $LegacyInstallDir "$LOCALAPPDATA\Programs\M4 PC Monitor"
+FunctionEnd
+
 Section "M4Dash" SEC_MAIN
   SectionIn RO
+  ${If} ${FileExists} "$LegacyInstallDir\settings.json"
+    ${IfNot} ${FileExists} "$INSTDIR\settings.json"
+      CopyFiles /SILENT "$LegacyInstallDir\settings.json" "$INSTDIR\settings.json"
+    ${EndIf}
+  ${EndIf}
+  ${If} ${FileExists} "$PreviousInstallDir\settings.json"
+    ${IfNot} ${FileExists} "$INSTDIR\settings.json"
+      CopyFiles /SILENT "$PreviousInstallDir\settings.json" "$INSTDIR\settings.json"
+    ${EndIf}
+  ${EndIf}
+  CreateDirectory "$INSTDIR\fonts"
+  ${If} ${FileExists} "$LegacyInstallDir\fonts\*.*"
+    CopyFiles /SILENT "$LegacyInstallDir\fonts\*.*" "$INSTDIR\fonts"
+  ${EndIf}
+  ${If} ${FileExists} "$PreviousInstallDir\fonts\*.*"
+    CopyFiles /SILENT "$PreviousInstallDir\fonts\*.*" "$INSTDIR\fonts"
+  ${EndIf}
   SetOutPath "$INSTDIR"
-  File "${APP_STAGE}\M4PCMonitor.exe"
+  File "${APP_STAGE}\M4Dash.exe"
   File "${APP_STAGE}\M4PCMonitor.ico"
   File "${APP_STAGE}\hardware-sensors.ps1"
   File "${APP_STAGE}\LibreHardwareMonitorLib.dll"
   File "${APP_STAGE}\LICENSE-LibreHardwareMonitor.txt"
   File "${APP_STAGE}\README_Portable.md"
-  CreateDirectory "$INSTDIR\fonts"
+  ${If} ${FileExists} "$PreviousInstallDir\M4PCMonitor.exe"
+    CopyFiles /SILENT "$INSTDIR\M4Dash.exe" "$PreviousInstallDir\M4PCMonitor.exe"
+    SetFileAttributes "$PreviousInstallDir\M4PCMonitor.exe" HIDDEN
+    ${If} $PreviousInstallDir != $INSTDIR
+      SetFileAttributes "$PreviousInstallDir" HIDDEN
+    ${EndIf}
+  ${EndIf}
+  ${If} $LegacyInstallDir != $PreviousInstallDir
+    ${If} ${FileExists} "$LegacyInstallDir\M4PCMonitor.exe"
+      CopyFiles /SILENT "$INSTDIR\M4Dash.exe" "$LegacyInstallDir\M4PCMonitor.exe"
+      SetFileAttributes "$LegacyInstallDir\M4PCMonitor.exe" HIDDEN
+      SetFileAttributes "$LegacyInstallDir" HIDDEN
+    ${EndIf}
+  ${EndIf}
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\M4PCMonitor" "InstallDir" "$INSTDIR"
+  ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "M4PCMonitor"
+  StrCmp $0 "" skip_autostart_migration
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "M4PCMonitor" "$\"$INSTDIR\${APP_EXE}$\""
+skip_autostart_migration:
   Delete "$DESKTOP\M4 PC Monitor.lnk"
   Delete "$SMPROGRAMS\M4 PC Monitor\M4 PC Monitor.lnk"
   RMDir "$SMPROGRAMS\M4 PC Monitor"
@@ -50,6 +98,7 @@ Section "M4Dash" SEC_MAIN
   CreateShortcut "$SMPROGRAMS\M4Dash\M4Dash.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\M4PCMonitor.ico"
   CreateShortcut "$DESKTOP\M4Dash.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\M4PCMonitor.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\M4PCMonitor.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "M4"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
@@ -68,6 +117,7 @@ Section "Uninstall"
   RMDir "$SMPROGRAMS\M4 PC Monitor"
   RMDir "$SMPROGRAMS\M4Dash"
   Delete "$INSTDIR\${APP_EXE}"
+  Delete "$INSTDIR\M4PCMonitor.exe"
   Delete "$INSTDIR\M4PCMonitor.ico"
   Delete "$INSTDIR\hardware-sensors.ps1"
   Delete "$INSTDIR\LibreHardwareMonitorLib.dll"
@@ -79,4 +129,6 @@ Section "Uninstall"
   RMDir "$INSTDIR"
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "Software\M4PCMonitor"
+  IfFileExists "$LegacyInstallDir\M4PCMonitor.exe" 0 +2
+  RMDir /r "$LegacyInstallDir"
 SectionEnd

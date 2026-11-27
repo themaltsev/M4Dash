@@ -48,8 +48,6 @@ jobs:
             artifacts/M4Dash-Portable-*.zip
             artifacts/M4Dash-Setup-*.exe
             artifacts/M4Dash-Setup-*.exe.sha256
-            artifacts/M4-PC-Monitor-Setup-*.exe
-            artifacts/M4-PC-Monitor-Setup-*.exe.sha256
           if-no-files-found: error
       - name: Publish GitHub release assets
         if: startsWith(github.ref, 'refs/tags/')
@@ -60,5 +58,3 @@ jobs:
             artifacts/M4Dash-Portable-*.zip
             artifacts/M4Dash-Setup-*.exe
             artifacts/M4Dash-Setup-*.exe.sha256
-            artifacts/M4-PC-Monitor-Setup-*.exe
-            artifacts/M4-PC-Monitor-Setup-*.exe.sha256

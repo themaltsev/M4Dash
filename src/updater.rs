@@ -3,7 +3,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    path::Path,
+    path::{Path, PathBuf},
     process::Command,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -129,19 +129,12 @@ async fn check_and_offer() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let (installer_name, installer) = [
-        format!("M4Dash-Setup-{latest}-x64.exe"),
-        format!("M4-PC-Monitor-Setup-{latest}-x64.exe"),
-    ]
-    .into_iter()
-    .find_map(|candidate| {
-        release
-            .assets
-            .iter()
-            .find(|asset| asset.name == candidate)
-            .map(|asset| (candidate, asset))
-    })
-    .ok_or_else(|| anyhow::anyhow!("latest release has no Windows setup asset"))?;
+    let installer_name = format!("M4Dash-Setup-{latest}-x64.exe");
+    let installer = release
+        .assets
+        .iter()
+        .find(|asset| asset.name == installer_name)
+        .ok_or_else(|| anyhow::anyhow!("latest release has no Windows setup asset"))?;
     set_status(UpdateStatus::Available(latest.to_owned()));
     let language = crate::config::Settings::load()
         .map(|settings| settings.language)
@@ -202,10 +195,26 @@ async fn check_and_offer() -> anyhow::Result<()> {
     fs::write(&setup_path, &bytes)?;
 
     let executable = std::env::current_exe()?;
-    let install_dir = executable
+    let current_dir = executable
         .parent()
         .ok_or_else(|| anyhow::anyhow!("application directory is unavailable"))?;
-    if let Err(error) = launch_installer_after_exit(&setup_path, &executable, install_dir) {
+    let legacy_install_dir = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .map(|path| path.join("Programs").join("M4 PC Monitor"));
+    let install_dir = legacy_install_dir
+        .as_deref()
+        .filter(|legacy| {
+            current_dir
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&legacy.to_string_lossy())
+        })
+        .and_then(|_| {
+            std::env::var_os("LOCALAPPDATA")
+                .map(PathBuf::from)
+                .map(|path| path.join("Programs").join("M4Dash"))
+        })
+        .unwrap_or_else(|| current_dir.to_path_buf());
+    if let Err(error) = launch_installer_after_exit(&setup_path, &install_dir) {
         let _ = fs::remove_file(&setup_path);
         show_error(
             language,
@@ -283,11 +292,7 @@ fn ps_quote(value: &Path) -> String {
     value.to_string_lossy().replace('\'', "''")
 }
 
-fn launch_installer_after_exit(
-    setup: &Path,
-    executable: &Path,
-    install_dir: &Path,
-) -> anyhow::Result<()> {
+fn launch_installer_after_exit(setup: &Path, install_dir: &Path) -> anyhow::Result<()> {
     let script =
         std::env::temp_dir().join(format!("M4PCMonitor-Update-{}.ps1", std::process::id()));
     let script_contents = format!(
@@ -311,7 +316,7 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
 "#,
         pid = std::process::id(),
         setup = ps_quote(setup),
-        exe = ps_quote(executable),
+        exe = ps_quote(&install_dir.join("M4Dash.exe")),
         install_dir = ps_quote(install_dir),
     );
     fs::write(&script, script_contents)?;
