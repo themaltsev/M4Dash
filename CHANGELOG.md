@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.37 — rename displayed app to M4Dash
+
+- Use M4Dash in the window, app header, tray, update dialogs, installer, and shortcuts.
+- Migrate old Start Menu/Desktop shortcut labels during Setup while keeping the existing installation directory for in-place updates.
+
 ## 0.1.36 — repository rename
 
 - Point the automatic GitHub update checker and release documentation to the renamed M4Dash repository.

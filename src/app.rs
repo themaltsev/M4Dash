@@ -75,7 +75,7 @@ impl MonitorApp {
             .ok()
             .and_then(|icon| {
                 tray_icon::TrayIconBuilder::new()
-                    .with_tooltip("M4 PC Monitor")
+                    .with_tooltip("M4Dash")
                     .with_icon(icon)
                     .with_menu(Box::new(menu))
                     .build()
@@ -299,7 +299,7 @@ impl eframe::App for MonitorApp {
         }
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("M4 PC Monitor");
+                ui.heading("M4Dash");
                 ui.label("Windows 11 x64");
             });
             ui.separator();
@@ -357,7 +357,7 @@ fn wake_native_window() {
             FindWindowW, SetForegroundWindow, ShowWindow, SW_RESTORE,
         },
     };
-    let title: Vec<u16> = "M4 PC Monitor\0".encode_utf16().collect();
+    let title: Vec<u16> = "M4Dash\0".encode_utf16().collect();
     if let Ok(hwnd) = unsafe { FindWindowW(PCWSTR::null(), PCWSTR(title.as_ptr())) } {
         unsafe {
             let _ = ShowWindow(hwnd, SW_RESTORE);
@@ -506,12 +506,9 @@ fn choose_font_file(language: crate::config::Language) -> anyhow::Result<Option<
     let filter: Vec<u16> = "Font files (*.ttf;*.otf)\0*.ttf;*.otf\0All files (*.*)\0*.*\0\0"
         .encode_utf16()
         .collect();
-    let title: Vec<u16> = format!(
-        "{}\0",
-        crate::i18n::tr(language, "Добавить шрифт в M4 PC Monitor")
-    )
-    .encode_utf16()
-    .collect();
+    let title: Vec<u16> = format!("{}\0", crate::i18n::tr(language, "Добавить шрифт в M4Dash"))
+        .encode_utf16()
+        .collect();
     let mut buffer = vec![0u16; 32_768];
     let mut dialog = OPENFILENAMEW::default();
     dialog.lStructSize = std::mem::size_of::<OPENFILENAMEW>() as u32;

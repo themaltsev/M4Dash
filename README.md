@@ -1,10 +1,10 @@
-# M4 PC Monitor — Windows x64
+# M4Dash — Windows x64
 
 Hardware and local LM Studio monitor for Windows 11 x64. Current installers and Portable archives are published on [GitHub Releases](https://github.com/themaltsev/M4Dash/releases/latest).
 
 ## Install
 
-- **Setup:** run `M4-PC-Monitor-Setup-<version>-x64.exe`. It installs per-user under `%LOCALAPPDATA%\Programs\M4 PC Monitor`, creates Start Menu and desktop shortcuts, and preserves settings when updating in place.
+- **Setup:** run `M4-PC-Monitor-Setup-<version>-x64.exe`. It installs per-user, creates M4Dash Start Menu and desktop shortcuts, and preserves the existing install directory and settings when updating in place.
 - **Portable:** extract the full `M4PCMonitor-Portable-<version>-x64.zip` into a writable folder and run `M4PCMonitor.exe`. Keep `settings.json` beside the executable when replacing files.
 
 The application checks GitHub Releases at startup and has a manual **Check for updates** button in General. If a newer version has a Windows Setup asset, it asks before downloading; after confirmation it validates the executable (and the SHA-256 sidecar when present), exits, installs into the current application folder, and restarts. Settings are not replaced by Setup updates. Windows may request elevation when launching because LibreHardwareMonitor needs it for some sensors.

@@ -83,15 +83,13 @@ pub fn set_enabled(enabled: bool) -> Result<()> {
             unsafe { std::slice::from_raw_parts(data.as_ptr().cast::<u8>(), data.len() * 2) };
         unsafe { RegSetValueExW(key, PCWSTR(value_name.as_ptr()), None, REG_SZ, Some(bytes)) }
             .ok()
-            .context("cannot enable M4 PC Monitor at sign-in")
+            .context("cannot enable M4Dash at sign-in")
     } else {
         let status = unsafe { RegDeleteValueW(key, PCWSTR(value_name.as_ptr())) };
         if status == ERROR_FILE_NOT_FOUND {
             Ok(())
         } else {
-            status
-                .ok()
-                .context("cannot disable M4 PC Monitor at sign-in")
+            status.ok().context("cannot disable M4Dash at sign-in")
         }
     };
     let _ = unsafe { RegCloseKey(key) };

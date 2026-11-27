@@ -5,9 +5,9 @@ ManifestDPIAware true
 !include "MUI2.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.1.34"
+  !define APP_VERSION "0.1.37"
 !endif
-!define APP_NAME "M4 PC Monitor"
+!define APP_NAME "M4Dash"
 !define APP_EXE "M4PCMonitor.exe"
 !define APP_STAGE "artifacts\M4PCMonitor-Portable-v${APP_VERSION}-x64"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\M4PCMonitor"
@@ -21,7 +21,7 @@ ShowUnInstDetails show
 
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
-!define MUI_FINISHPAGE_RUN_TEXT "Запустить M4 PC Monitor"
+!define MUI_FINISHPAGE_RUN_TEXT "Запустить M4Dash"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -31,7 +31,7 @@ ShowUnInstDetails show
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "Russian"
 
-Section "M4 PC Monitor" SEC_MAIN
+Section "M4Dash" SEC_MAIN
   SectionIn RO
   SetOutPath "$INSTDIR"
   File "${APP_STAGE}\M4PCMonitor.exe"
@@ -43,9 +43,12 @@ Section "M4 PC Monitor" SEC_MAIN
   CreateDirectory "$INSTDIR\fonts"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\M4PCMonitor" "InstallDir" "$INSTDIR"
-  CreateDirectory "$SMPROGRAMS\M4 PC Monitor"
-  CreateShortcut "$SMPROGRAMS\M4 PC Monitor\M4 PC Monitor.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\M4PCMonitor.ico"
-  CreateShortcut "$DESKTOP\M4 PC Monitor.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\M4PCMonitor.ico"
+  Delete "$DESKTOP\M4 PC Monitor.lnk"
+  Delete "$SMPROGRAMS\M4 PC Monitor\M4 PC Monitor.lnk"
+  RMDir "$SMPROGRAMS\M4 PC Monitor"
+  CreateDirectory "$SMPROGRAMS\M4Dash"
+  CreateShortcut "$SMPROGRAMS\M4Dash\M4Dash.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\M4PCMonitor.ico"
+  CreateShortcut "$DESKTOP\M4Dash.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\M4PCMonitor.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "M4"
@@ -57,9 +60,13 @@ SectionEnd
 
 Section "Uninstall"
   Delete "$SMSTARTUP\M4 PC Monitor.lnk"
+  Delete "$SMSTARTUP\M4Dash.lnk"
   Delete "$DESKTOP\M4 PC Monitor.lnk"
+  Delete "$DESKTOP\M4Dash.lnk"
   Delete "$SMPROGRAMS\M4 PC Monitor\M4 PC Monitor.lnk"
+  Delete "$SMPROGRAMS\M4Dash\M4Dash.lnk"
   RMDir "$SMPROGRAMS\M4 PC Monitor"
+  RMDir "$SMPROGRAMS\M4Dash"
   Delete "$INSTDIR\${APP_EXE}"
   Delete "$INSTDIR\M4PCMonitor.ico"
   Delete "$INSTDIR\hardware-sensors.ps1"

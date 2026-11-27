@@ -245,7 +245,7 @@ fn confirm_update(language: crate::config::Language, version: &str) -> bool {
     );
     message_box(
         &message,
-        crate::i18n::tr(language, "Обновление M4 PC Monitor"),
+        crate::i18n::tr(language, "Обновление M4Dash"),
         MB_YESNO | MB_ICONINFORMATION | MB_SETFOREGROUND | MB_TOPMOST,
     ) == IDYES
 }
@@ -299,7 +299,7 @@ try {{
   if ($result.ExitCode -ne 0) {{ throw "Installer exited with code $($result.ExitCode)" }}
   Start-Process -FilePath $exe
 }} catch {{
-  [void][System.Windows.Forms.MessageBox]::Show("M4 PC Monitor update failed: $($_.Exception.Message)", 'M4 PC Monitor', 'OK', 'Error')
+  [void][System.Windows.Forms.MessageBox]::Show("M4Dash update failed: $($_.Exception.Message)", 'M4Dash', 'OK', 'Error')
   Start-Process -FilePath $exe -ErrorAction SilentlyContinue
 }}
 Remove-Item -LiteralPath $setup -Force -ErrorAction SilentlyContinue

@@ -81,7 +81,7 @@ fn main() -> Result<()> {
 
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
-            .with_title("M4 PC Monitor")
+            .with_title("M4Dash")
             .with_visible(!settings.start_in_tray)
             .with_active(!settings.start_in_tray)
             .with_inner_size([900.0, 640.0])
@@ -90,7 +90,7 @@ fn main() -> Result<()> {
         ..Default::default()
     };
     let result = eframe::run_native(
-        "M4 PC Monitor",
+        "M4Dash",
         options,
         Box::new(move |_cc| {
             Ok(Box::new(app::MonitorApp::new(
@@ -131,7 +131,7 @@ fn activate_existing_window() {
             FindWindowW, SetForegroundWindow, ShowWindow, SW_RESTORE,
         },
     };
-    let title: Vec<u16> = "M4 PC Monitor\0".encode_utf16().collect();
+    let title: Vec<u16> = "M4Dash\0".encode_utf16().collect();
     if let Ok(window) = unsafe { FindWindowW(PCWSTR::null(), PCWSTR(title.as_ptr())) } {
         unsafe {
             let _ = ShowWindow(window, SW_RESTORE);
@@ -142,5 +142,5 @@ fn activate_existing_window() {
 
 #[cfg(not(windows))]
 fn main() {
-    println!("M4 PC Monitor is a Windows-only application.");
+    println!("M4Dash is a Windows-only application.");
 }

@@ -27,7 +27,11 @@ if (!(Test-Path -LiteralPath (Join-Path $destination 'settings.json'))) {
 
 # Resolve the current user's actual Desktop (including OneDrive/Known Folder redirection).
 $desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::Desktop)
-$shortcutPath = Join-Path $desktop 'M4 PC Monitor.lnk'
+$shortcutPath = Join-Path $desktop 'M4Dash.lnk'
+$legacyShortcutPath = Join-Path $desktop 'M4 PC Monitor.lnk'
+if ((Test-Path -LiteralPath $legacyShortcutPath) -and !(Test-Path -LiteralPath $shortcutPath)) {
+    Move-Item -LiteralPath $legacyShortcutPath -Destination $shortcutPath
+}
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $exe

@@ -1,4 +1,4 @@
-# M4 PC Monitor icons
+# M4Dash icons
 
 `M4PCMonitor.svg` is the canonical supplied vector. Generated deliverables:
 
