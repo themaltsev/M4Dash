@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.33 — manual update controls
+
+- Add a localized Updates block to General with a manual GitHub check button and current check/update status.
+- Keep automatic startup checks and confirmation-gated installation.
+
 ## 0.1.32 — system theme and Windows setup/update
 
 - Replace the light/dark checkbox with System, Light, and Dark theme modes; follow Windows preference by default and migrate saved legacy choices.

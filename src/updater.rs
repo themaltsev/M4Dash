@@ -5,7 +5,10 @@ use std::{
     fs,
     path::Path,
     process::Command,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex, OnceLock,
+    },
     thread,
     time::Duration,
 };
@@ -20,6 +23,35 @@ use windows::{
 static UPDATE_READY: AtomicBool = AtomicBool::new(false);
 const REPOSITORY: &str = "themaltsev/m4-pc-monitor";
 
+#[derive(Clone, Debug)]
+pub enum UpdateStatus {
+    Idle,
+    Checking,
+    Available(String),
+    UpToDate,
+    Downloading(String),
+    Error,
+}
+
+static UPDATE_STATUS: OnceLock<Mutex<UpdateStatus>> = OnceLock::new();
+
+fn status_cell() -> &'static Mutex<UpdateStatus> {
+    UPDATE_STATUS.get_or_init(|| Mutex::new(UpdateStatus::Idle))
+}
+
+fn set_status(status: UpdateStatus) {
+    if let Ok(mut current) = status_cell().lock() {
+        *current = status;
+    }
+}
+
+pub fn status() -> UpdateStatus {
+    status_cell()
+        .lock()
+        .map(|status| status.clone())
+        .unwrap_or(UpdateStatus::Error)
+}
+
 #[derive(Deserialize)]
 struct Release {
     tag_name: String,
@@ -33,7 +65,22 @@ struct Asset {
 }
 
 pub fn start_check() {
-    let _ = thread::Builder::new()
+    launch_check();
+}
+
+pub fn check_now() {
+    if matches!(
+        status(),
+        UpdateStatus::Checking | UpdateStatus::Downloading(_)
+    ) {
+        return;
+    }
+    launch_check();
+}
+
+fn launch_check() {
+    set_status(UpdateStatus::Checking);
+    let spawned = thread::Builder::new()
         .name("m4-update-check".into())
         .spawn(|| {
             let runtime = match tokio::runtime::Builder::new_current_thread()
@@ -47,9 +94,14 @@ pub fn start_check() {
                 }
             };
             if let Err(error) = runtime.block_on(check_and_offer()) {
+                set_status(UpdateStatus::Error);
                 tracing::warn!("Update check failed: {error:#}");
             }
         });
+    if let Err(error) = spawned {
+        set_status(UpdateStatus::Error);
+        tracing::warn!("Could not start update check: {error}");
+    }
 }
 
 pub fn update_ready() -> bool {
@@ -73,6 +125,7 @@ async fn check_and_offer() -> anyhow::Result<()> {
     let latest = release.tag_name.trim_start_matches('v');
     let current = env!("CARGO_PKG_VERSION");
     if compare_versions(latest, current) <= 0 {
+        set_status(UpdateStatus::UpToDate);
         return Ok(());
     }
 
@@ -82,12 +135,14 @@ async fn check_and_offer() -> anyhow::Result<()> {
         .iter()
         .find(|asset| asset.name == installer_name)
         .ok_or_else(|| anyhow::anyhow!("latest release has no Windows setup asset"))?;
+    set_status(UpdateStatus::Available(latest.to_owned()));
     let language = crate::config::Settings::load()
         .map(|settings| settings.language)
         .unwrap_or_default();
     if !confirm_update(language, latest) {
         return Ok(());
     }
+    set_status(UpdateStatus::Downloading(latest.to_owned()));
 
     let temp_dir = std::env::temp_dir();
     let setup_path = temp_dir.join(format!(

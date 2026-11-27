@@ -1042,7 +1042,57 @@ impl MonitorApp {
                 .text(crate::i18n::tr(language, "Размер текста")),
         );
         ui.color_edit_button_srgb(&mut self.settings.text_color);
+        ui.separator();
+        ui.heading(crate::i18n::tr(language, "Обновления"));
+        ui.label(crate::i18n::tr_format(
+            language,
+            "Текущая версия: {}",
+            &[env!("CARGO_PKG_VERSION").to_owned()],
+        ));
+        let update_status = crate::updater::status();
+        let update_is_busy = matches!(
+            &update_status,
+            crate::updater::UpdateStatus::Checking | crate::updater::UpdateStatus::Downloading(_)
+        );
+        if ui
+            .add_enabled(
+                !update_is_busy,
+                egui::Button::new(crate::i18n::tr(language, "Проверить обновления")),
+            )
+            .clicked()
+        {
+            crate::updater::check_now();
+        }
+        let status_text = match update_status {
+            crate::updater::UpdateStatus::Idle => {
+                crate::i18n::tr(language, "Нажмите кнопку для проверки GitHub").to_owned()
+            }
+            crate::updater::UpdateStatus::Checking => {
+                crate::i18n::tr(language, "Проверка обновлений…").to_owned()
+            }
+            crate::updater::UpdateStatus::Available(version) => {
+                return_update_status(language, "Доступна версия {}", &version)
+            }
+            crate::updater::UpdateStatus::UpToDate => {
+                crate::i18n::tr(language, "Установлена последняя версия").to_owned()
+            }
+            crate::updater::UpdateStatus::Downloading(version) => {
+                return_update_status(language, "Скачивается версия {}…", &version)
+            }
+            crate::updater::UpdateStatus::Error => {
+                crate::i18n::tr(language, "Не удалось проверить обновления").to_owned()
+            }
+        };
+        ui.label(status_text);
     }
+}
+
+fn return_update_status(
+    language: crate::config::Language,
+    source: &'static str,
+    version: &str,
+) -> String {
+    crate::i18n::tr_format(language, source, &[version.to_owned()])
 }
 
 fn start_taskbar_refresh(
