@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.25 — remove duplicate autosave hint
+
+- Remove the persistent autosave helper line; the footer now displays only the single status message after a settings change.
+
+
 ## 0.1.24 — remove clipped unavailable RAM bandwidth marker
 
 - Keep the taskbar RAM row to type, frequency, and used/total capacity when no live DRAM bandwidth provider is available; this fits the existing fixed-width column instead of showing a clipped `RAM BW N/A` fragment.

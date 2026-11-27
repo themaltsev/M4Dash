@@ -124,3 +124,9 @@
 - Live RAM bandwidth was not found in the current data providers. AMD uProf's system-analysis support matrix lists Ryzen 5000 as unsupported for uProfPcm; the existing LibreHardwareMonitor memory integration reports capacity/usage and DIMM SPD data, not live DRAM throughput.
 - Deployed to HOME-PC Portable; `settings.json` remains 2914 bytes, shortcut target/icon remain valid, autostart remains disabled, and process PID 24456 is running. Remote SSH still reports `MainWindowHandle=0`, so this verifies process/deployment but not the visible taskbar pixels.
 - TrafficMonitor was not changed.
+
+## 2026-11-27 — Portable v0.1.25 duplicate autosave status
+
+- Windows x64 release build passed; removed the always-visible autosave hint so the settings footer no longer repeats the autosave status.
+- Deployed to HOME-PC Portable with settings preserved (2914 bytes), shortcut target/icon intact, and autostart disabled. Process PID 38452 is running; remote `MainWindowHandle=0` means the duplicate-free visual footer itself was not inspected on desktop.
+- TrafficMonitor was not changed.

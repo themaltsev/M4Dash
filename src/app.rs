@@ -339,7 +339,6 @@ impl eframe::App for MonitorApp {
                     _ => self.general_page(ui),
                 }
                 ui.separator();
-                ui.label("Изменения автоматически сохраняются рядом с приложением.");
                 if !self.status.is_empty() {
                     ui.label(&self.status);
                 }
