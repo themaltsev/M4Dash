@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.17 — tray and empty-row crash fix
+
+- Add startup mode setting and tray menu with Open and Exit; closing the window hides it when the tray is available.
+- Avoid passing a dangling empty-string buffer to DrawTextW when one row in a taskbar column is disabled.
+- Guard against zero-width taskbar geometry during Explorer transitions.
+
 ## 0.1.16 — grouped taskbar layout and single instance
 
 - Group output into three two-line columns (network receive/send, CPU/RAM, GPU/LLM) and keep CPU metrics on one unwrapped line.

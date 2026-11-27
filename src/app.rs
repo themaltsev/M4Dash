@@ -21,6 +21,11 @@ pub struct MonitorApp {
     status: String,
     launch_at_login: bool,
     active_font_family: String,
+    tray: Option<tray_icon::TrayIcon>,
+    tray_open: tray_icon::menu::MenuId,
+    tray_exit: tray_icon::menu::MenuId,
+    exiting: bool,
+    initial_visibility_pending: bool,
 }
 
 impl MonitorApp {
@@ -31,6 +36,23 @@ impl MonitorApp {
         llm: Arc<RwLock<LlmSnapshot>>,
         shutdown: Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
+        let menu = tray_icon::menu::Menu::new();
+        let open = tray_icon::menu::MenuItem::new("Открыть", true, None);
+        let exit = tray_icon::menu::MenuItem::new("Выход", true, None);
+        let tray_open = open.id().clone();
+        let tray_exit = exit.id().clone();
+        let _ = menu.append_items(&[&open, &exit]);
+        let icon_data = icon_data();
+        let tray = tray_icon::Icon::from_rgba(icon_data.rgba, icon_data.width, icon_data.height)
+            .ok()
+            .and_then(|icon| {
+                tray_icon::TrayIconBuilder::new()
+                    .with_tooltip("M4 PC Monitor")
+                    .with_icon(icon)
+                    .with_menu(Box::new(menu))
+                    .build()
+                    .ok()
+            });
         Self {
             settings,
             hardware,
@@ -41,6 +63,11 @@ impl MonitorApp {
             status: String::new(),
             launch_at_login: crate::startup::is_enabled(),
             active_font_family: String::new(),
+            tray,
+            tray_open,
+            tray_exit,
+            exiting: false,
+            initial_visibility_pending: true,
         }
     }
     fn save(&mut self) {
@@ -126,6 +153,41 @@ fn pixel(rgba: &mut [u8], x: usize, y: usize, color: [u8; 4]) {
 
 impl eframe::App for MonitorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.initial_visibility_pending {
+            self.initial_visibility_pending = false;
+            if self.settings.start_in_tray && self.tray.is_some() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            }
+        }
+        while let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv() {
+            if event.id == self.tray_open {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            } else if event.id == self.tray_exit {
+                self.exiting = true;
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+        }
+        while let Ok(event) = tray_icon::TrayIconEvent::receiver().try_recv() {
+            if matches!(
+                event,
+                tray_icon::TrayIconEvent::DoubleClick {
+                    button: tray_icon::MouseButton::Left,
+                    ..
+                }
+            ) {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            }
+        }
+        if ctx.input(|input| input.viewport().close_requested())
+            && !self.exiting
+            && self.tray.is_some()
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        }
         ctx.request_repaint_after(Duration::from_millis(self.settings.refresh_ms.max(200)));
         if self.active_font_family != self.settings.font_family {
             let custom_path = self
@@ -642,6 +704,16 @@ impl MonitorApp {
     }
     fn general_page(&mut self, ui: &mut egui::Ui) {
         ui.heading("Общие настройки · Portable");
+        egui::ComboBox::from_label("Открывать программу")
+            .selected_text(if self.settings.start_in_tray {
+                "В трее"
+            } else {
+                "В окне"
+            })
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut self.settings.start_in_tray, true, "В трее");
+                ui.selectable_value(&mut self.settings.start_in_tray, false, "В окне");
+            });
         egui::ComboBox::from_label("Интервал обновления")
             .selected_text(format!("{} мс", self.settings.refresh_ms))
             .show_ui(ui, |ui| {

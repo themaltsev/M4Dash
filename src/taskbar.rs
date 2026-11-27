@@ -286,6 +286,9 @@ unsafe fn position_child(taskbar: HWND, child: HWND) {
     let mut taskbar_screen = RECT::default();
     let _ = GetWindowRect(taskbar, &mut taskbar_screen);
     let width = client.right - client.left;
+    if width < 2 {
+        return;
+    }
     let height = (client.bottom - client.top).max(32);
 
     // Windows 11 exposes the Start and notification-area windows as children
@@ -430,6 +433,11 @@ unsafe extern "system" fn taskbar_wnd_proc(
                         columns.iter().zip(widths.iter()).enumerate()
                     {
                         for (row_index, line) in [top, bottom].iter().enumerate() {
+                            // DrawTextW may dereference the pointer even with a zero
+                            // count; an empty Vec supplies a dangling pointer.
+                            if line.is_empty() || x >= rect.right {
+                                continue;
+                            }
                             let mut wide: Vec<u16> = line.encode_utf16().collect();
                             let mut row = RECT {
                                 left: x,

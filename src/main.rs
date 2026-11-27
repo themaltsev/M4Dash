@@ -49,7 +49,7 @@ fn main() -> Result<()> {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("M4 PC Monitor")
             .with_visible(true)
-            .with_active(true)
+            .with_active(!settings.start_in_tray)
             .with_inner_size([900.0, 640.0])
             .with_min_inner_size([760.0, 520.0])
             .with_icon(std::sync::Arc::new(app::icon_data())),
