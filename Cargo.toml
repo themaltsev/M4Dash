@@ -1,6 +1,6 @@
 [package]
 name = "m4-pc-monitor"
-version = "0.1.45"
+version = "0.1.46"
 edition = "2021"
 description = "Compact Windows hardware and local LLM monitor"
 

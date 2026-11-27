@@ -147,6 +147,68 @@ pub fn system_prefers_dark_theme() -> bool {
     queried && value_size >= std::mem::size_of::<u32>() as u32 && value == 0
 }
 
+#[cfg(windows)]
+pub fn system_accent_color() -> Option<[u8; 3]> {
+    use windows::{
+        core::PCWSTR,
+        Win32::System::Registry::{
+            RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE,
+            REG_VALUE_TYPE,
+        },
+    };
+
+    let key_name: Vec<u16> = r"Software\Microsoft\Windows\DWM"
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let mut key = HKEY::default();
+    if unsafe {
+        RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(key_name.as_ptr()),
+            None,
+            KEY_QUERY_VALUE,
+            &mut key,
+        )
+    }
+    .is_err()
+    {
+        return None;
+    }
+
+    // AccentColor tracks the user's selected Windows accent. Older Windows
+    // builds may only expose ColorizationColor, so try it as a fallback.
+    let mut color = None;
+    for value in ["AccentColor", "ColorizationColor"] {
+        let value_name: Vec<u16> = value.encode_utf16().chain(Some(0)).collect();
+        let mut raw = 0u32;
+        let mut value_size = std::mem::size_of::<u32>() as u32;
+        let mut value_type = REG_VALUE_TYPE(0);
+        let queried = unsafe {
+            RegQueryValueExW(
+                key,
+                PCWSTR(value_name.as_ptr()),
+                None,
+                Some(&mut value_type),
+                Some((&mut raw as *mut u32).cast()),
+                Some(&mut value_size),
+            )
+        }
+        .is_ok();
+        if queried && value_size >= std::mem::size_of::<u32>() as u32 {
+            // These registry values are stored as AARRGGBB.
+            color = Some([
+                ((raw >> 16) & 0xff) as u8,
+                ((raw >> 8) & 0xff) as u8,
+                (raw & 0xff) as u8,
+            ]);
+            break;
+        }
+    }
+    let _ = unsafe { RegCloseKey(key) };
+    color
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LayoutGroup {
     pub first: String,

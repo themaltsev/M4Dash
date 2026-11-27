@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.46 — Windows-style light/dark colors and system accent
+
+- Match the settings palette to Windows light and dark appearance.
+- Read and refresh the selected Windows accent color dynamically, with a blue fallback.
+
 ## 0.1.45 — respect tray launch mode
 
 - Keep the GUI hidden when launching a second instance while tray mode is selected.

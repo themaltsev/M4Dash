@@ -39,6 +39,7 @@ pub struct MonitorApp {
     settings_save_deadline: Option<std::time::Instant>,
     system_theme_dark: bool,
     system_theme_checked_at: std::time::Instant,
+    system_accent_color: [u8; 3],
 }
 
 impl MonitorApp {
@@ -51,6 +52,7 @@ impl MonitorApp {
     ) -> Self {
         crate::updater::start_check();
         let system_theme_dark = crate::config::system_prefers_dark_theme();
+        let system_accent_color = crate::config::system_accent_color().unwrap_or([0, 120, 215]);
         let overlay_settings = Arc::new(RwLock::new(settings.clone()));
         start_taskbar_refresh(
             overlay_settings.clone(),
@@ -102,6 +104,7 @@ impl MonitorApp {
             settings_save_deadline: None,
             system_theme_dark,
             system_theme_checked_at: std::time::Instant::now(),
+            system_accent_color,
         }
     }
     fn save(&mut self) {
@@ -247,10 +250,12 @@ impl eframe::App for MonitorApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
         }
         ctx.request_repaint_after(Duration::from_millis(self.settings.refresh_ms.max(200)));
-        if self.settings.theme_mode == ThemeMode::System
-            && self.system_theme_checked_at.elapsed() >= Duration::from_secs(1)
-        {
-            self.system_theme_dark = crate::config::system_prefers_dark_theme();
+        if self.system_theme_checked_at.elapsed() >= Duration::from_secs(1) {
+            if self.settings.theme_mode == ThemeMode::System {
+                self.system_theme_dark = crate::config::system_prefers_dark_theme();
+            }
+            self.system_accent_color =
+                crate::config::system_accent_color().unwrap_or([0, 120, 215]);
             self.system_theme_checked_at = std::time::Instant::now();
         }
         if self.active_language != Some(language) {
@@ -340,14 +345,72 @@ impl eframe::App for MonitorApp {
             self.save();
         }
         let dark_theme = self.settings.theme_mode.is_dark(self.system_theme_dark);
-        if ctx.style().visuals.dark_mode != dark_theme {
-            ctx.set_visuals(if dark_theme {
-                egui::Visuals::dark()
-            } else {
-                egui::Visuals::light()
-            });
+        let visuals = windows_visuals(dark_theme, self.system_accent_color);
+        if ctx.style().visuals != visuals {
+            ctx.set_visuals(visuals);
         }
     }
+}
+
+fn windows_visuals(dark: bool, accent_rgb: [u8; 3]) -> egui::Visuals {
+    let mut visuals = if dark {
+        egui::Visuals::dark()
+    } else {
+        egui::Visuals::light()
+    };
+    let accent = egui::Color32::from_rgb(accent_rgb[0], accent_rgb[1], accent_rgb[2]);
+    let accent_soft = egui::Color32::from_rgba_unmultiplied(
+        accent_rgb[0],
+        accent_rgb[1],
+        accent_rgb[2],
+        if dark { 52 } else { 34 },
+    );
+    let (background, control, border) = if dark {
+        (
+            egui::Color32::from_rgb(31, 32, 35),
+            egui::Color32::from_rgb(41, 42, 46),
+            egui::Color32::from_rgb(86, 88, 94),
+        )
+    } else {
+        (
+            egui::Color32::from_rgb(240, 240, 240),
+            egui::Color32::WHITE,
+            egui::Color32::from_rgb(130, 132, 136),
+        )
+    };
+
+    visuals.window_fill = background;
+    visuals.panel_fill = background;
+    visuals.window_stroke = egui::Stroke::new(1.0_f32, border);
+    visuals.extreme_bg_color = control;
+    visuals.code_bg_color = control;
+    visuals.faint_bg_color = if dark {
+        egui::Color32::from_rgb(38, 39, 43)
+    } else {
+        egui::Color32::from_rgb(247, 247, 247)
+    };
+    visuals.hyperlink_color = accent;
+    visuals.selection.bg_fill = accent;
+    visuals.selection.stroke = egui::Stroke::new(
+        1.0_f32,
+        if dark {
+            egui::Color32::WHITE
+        } else {
+            egui::Color32::from_rgb(20, 20, 20)
+        },
+    );
+    visuals.widgets.noninteractive.bg_fill = background;
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, border);
+    visuals.widgets.inactive.bg_fill = control;
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, border);
+    visuals.widgets.hovered.bg_fill = accent_soft;
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, accent);
+    visuals.widgets.active.bg_fill = accent_soft;
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, accent);
+    visuals.widgets.active.fg_stroke.color = accent;
+    visuals.widgets.open.bg_fill = control;
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0_f32, accent);
+    visuals
 }
 
 fn wake_native_window() {
