@@ -11,6 +11,13 @@ use std::{
     time::Duration,
 };
 
+static TASKBAR_ACTION: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+pub(crate) fn taskbar_menu_action(action: u8) {
+    TASKBAR_ACTION.fetch_or(action, std::sync::atomic::Ordering::Release);
+    wake_native_window();
+}
+
 pub struct MonitorApp {
     settings: Settings,
     hardware: Arc<RwLock<Snapshot>>,
@@ -204,7 +211,8 @@ impl eframe::App for MonitorApp {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
             }
         }
-        let actions = self.tray_actions.swap(0, Ordering::AcqRel);
+        let actions =
+            self.tray_actions.swap(0, Ordering::AcqRel) | TASKBAR_ACTION.swap(0, Ordering::AcqRel);
         if actions & 2 != 0 {
             self.exiting = true;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -236,14 +244,22 @@ impl eframe::App for MonitorApp {
         let l = self.llm.read().map(|v| v.clone()).unwrap_or_default();
         let items = grouped_items(&self.settings, taskbar_items(&self.settings, &s, &x, &l));
         let order = ordered_keys(&mut self.settings.taskbar_order, &items);
-        let visible: Vec<String> = order
+        let visible: Vec<(String, u16)> = order
             .iter()
             .filter_map(|k| {
                 items
                     .iter()
                     .find(|(id, _, _)| id == k)
                     .filter(|(_, a, b)| !a.is_empty() || !b.is_empty())
-                    .map(|(_, a, b)| format!("{a}\n{b}"))
+                    .map(|(id, a, b)| {
+                        let width = id
+                            .strip_prefix("group:")
+                            .and_then(|x| x.parse::<usize>().ok())
+                            .and_then(|index| self.settings.layout_groups.get(index))
+                            .map(|group| group.width_chars)
+                            .unwrap_or(28);
+                        (format!("{a}\n{b}"), width)
+                    })
             })
             .collect();
         if self.settings.show_taskbar {
@@ -750,6 +766,9 @@ impl MonitorApp {
                     delete = Some(index);
                 }
             });
+            ui.add(
+                egui::Slider::new(&mut group.width_chars, 8..=80).text("Ширина группы (символов)"),
+            );
         }
         if let Some(index) = delete {
             self.settings.layout_groups.remove(index);
@@ -761,6 +780,7 @@ impl MonitorApp {
                 .push(crate::config::LayoutGroup {
                     first: String::new(),
                     second: String::new(),
+                    width_chars: 28,
                 });
         }
         ui.separator();

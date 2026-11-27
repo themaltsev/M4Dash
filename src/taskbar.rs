@@ -17,7 +17,7 @@ use std::{
 use windows::{
     core::PCWSTR,
     Win32::{
-        Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM},
+        Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
         Graphics::Gdi::{
             AddFontResourceExW, BeginPaint, CreateFontW, CreateSolidBrush, DeleteObject, DrawTextW,
             EndPaint, FillRect, InvalidateRect, SelectObject, SetBkMode, SetTextColor,
@@ -27,12 +27,13 @@ use windows::{
         },
         System::LibraryLoader::GetModuleHandleW,
         UI::WindowsAndMessaging::{
-            CreateWindowExW, DefWindowProcW, FindWindowExW, FindWindowW, GetClientRect, GetParent,
-            GetWindowLongPtrW, GetWindowRect, RegisterClassW, SetLayeredWindowAttributes,
-            SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_STYLE, LWA_COLORKEY,
-            SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_SHOWWINDOW, SW_SHOWNA, WM_ERASEBKGND, WM_PAINT,
-            WNDCLASSW, WS_CHILD, WS_CLIPSIBLINGS, WS_EX_LAYERED, WS_EX_NOACTIVATE,
-            WS_EX_TOOLWINDOW, WS_POPUP,
+            AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
+            FindWindowExW, FindWindowW, GetClientRect, GetCursorPos, GetParent, GetWindowLongPtrW,
+            GetWindowRect, RegisterClassW, SetLayeredWindowAttributes, SetParent,
+            SetWindowLongPtrW, SetWindowPos, ShowWindow, TrackPopupMenu, GWL_STYLE, LWA_COLORKEY,
+            MF_STRING, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_SHOWWINDOW, SW_SHOWNA, TPM_NONOTIFY,
+            TPM_RETURNCMD, TPM_RIGHTBUTTON, WM_CONTEXTMENU, WM_ERASEBKGND, WM_PAINT, WNDCLASSW,
+            WS_CHILD, WS_CLIPSIBLINGS, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
         },
     },
 };
@@ -46,7 +47,7 @@ static TEXT_RGB: AtomicU32 = AtomicU32::new(0x00_EB_EB_EBu32);
 static DRAW_STYLE_KEY: AtomicU64 = AtomicU64::new(0);
 static DRAW_DATA_KEY: AtomicU64 = AtomicU64::new(0);
 static FONT_NAME: Mutex<String> = Mutex::new(String::new());
-static DRAW_COLUMNS: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
+static DRAW_COLUMNS: Mutex<Vec<(String, String, u16)>> = Mutex::new(Vec::new());
 static PRIVATE_FONTS: LazyLock<Mutex<HashSet<PathBuf>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
 static FIRST_CALL_LOGGED: AtomicBool = AtomicBool::new(false);
@@ -57,7 +58,7 @@ static POSITION_LOGGED: AtomicBool = AtomicBool::new(false);
 
 pub fn show_text_overlay(
     _ctx: &eframe::egui::Context,
-    columns: Vec<String>,
+    columns: Vec<(String, u16)>,
     font_size: f32,
     color: [u8; 3],
     font_family: &str,
@@ -108,12 +109,13 @@ pub fn show_text_overlay(
         ^ u64::from(rgb).rotate_left(41);
     let style_changed = DRAW_STYLE_KEY.swap(style_key, Ordering::Relaxed) != style_key;
 
-    let draw_columns: Vec<(String, String)> = columns
+    let draw_columns: Vec<(String, String, u16)> = columns
         .iter()
-        .map(|column| {
+        .map(|(column, width)| {
             (
                 column.lines().next().unwrap_or_default().to_owned(),
                 column.lines().nth(1).unwrap_or_default().to_owned(),
+                *width,
             )
         })
         .collect();
@@ -122,11 +124,11 @@ pub fn show_text_overlay(
     }
     let data_key = draw_columns
         .iter()
-        .flat_map(|(top, bottom)| {
+        .flat_map(|(top, bottom, width)| {
             top.chars()
                 .chain(['\n'])
                 .chain(bottom.chars())
-                .chain(['\0'])
+                .chain(['\0', char::from_u32(u32::from(*width)).unwrap_or('\0')])
         })
         .fold(
             0xcbf29ce484222325u64 ^ u64::from(column_spacing_px),
@@ -380,6 +382,33 @@ unsafe extern "system" fn taskbar_wnd_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     match msg {
+        WM_CONTEXTMENU => {
+            if let Ok(menu) = CreatePopupMenu() {
+                let open: Vec<u16> = "Открыть\0".encode_utf16().collect();
+                let exit: Vec<u16> = "Выход\0".encode_utf16().collect();
+                let _ = AppendMenuW(menu, MF_STRING, 1, PCWSTR(open.as_ptr()));
+                let _ = AppendMenuW(menu, MF_STRING, 2, PCWSTR(exit.as_ptr()));
+                let mut point = POINT::default();
+                let _ = GetCursorPos(&mut point);
+                let selected = TrackPopupMenu(
+                    menu,
+                    TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON,
+                    point.x,
+                    point.y,
+                    None,
+                    hwnd,
+                    None,
+                )
+                .0;
+                let _ = DestroyMenu(menu);
+                match selected {
+                    1 => crate::app::taskbar_menu_action(1),
+                    2 => crate::app::taskbar_menu_action(2),
+                    _ => {}
+                }
+            }
+            LRESULT(0)
+        }
         WM_ERASEBKGND => LRESULT(1),
         WM_PAINT => {
             let mut paint = windows::Win32::Graphics::Gdi::PAINTSTRUCT::default();
@@ -423,13 +452,13 @@ unsafe extern "system" fn taskbar_wnd_proc(
                     let spacing = COLUMN_SPACING_PX.load(Ordering::Relaxed) as i32;
                     let widths: Vec<i32> = columns
                         .iter()
-                        .map(|(top, bottom)| measure_text(hdc, top).max(measure_text(hdc, bottom)))
+                        .map(|(_, _, width)| measure_text(hdc, &"0".repeat(usize::from(*width))))
                         .collect();
                     let total_width = widths.iter().sum::<i32>()
                         + spacing * widths.len().saturating_sub(1) as i32;
                     let mut x = (rect.right - total_width - 8).max(8);
                     let half = (rect.bottom - rect.top) / 2;
-                    for (index, ((top, bottom), width)) in
+                    for (index, ((top, bottom, _), width)) in
                         columns.iter().zip(widths.iter()).enumerate()
                     {
                         for (row_index, line) in [top, bottom].iter().enumerate() {

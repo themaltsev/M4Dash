@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.21 — fixed group widths
+
+- Add an adjustable fixed character-based width for each group; pixel widths scale with the selected font and size rather than live metrics.
+- Add a right-click menu on taskbar metrics with Open and Exit commands.
+
 ## 0.1.20 — groups-only taskbar layout
 
 - Display only user-configured groups, with network RX/TX, CPU/RAM and GPU/LLM as defaults for settings without group configuration.

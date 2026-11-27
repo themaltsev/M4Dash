@@ -31,6 +31,12 @@ impl SpeedUnit {
 pub struct LayoutGroup {
     pub first: String,
     pub second: String,
+    #[serde(default = "default_group_width")]
+    pub width_chars: u16,
+}
+
+fn default_group_width() -> u16 {
+    28
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -92,14 +98,17 @@ impl Default for Settings {
                 LayoutGroup {
                     first: "network:rx".into(),
                     second: "network:tx".into(),
+                    width_chars: 14,
                 },
                 LayoutGroup {
                     first: "cpu".into(),
                     second: "ram".into(),
+                    width_chars: 30,
                 },
                 LayoutGroup {
                     first: "gpu".into(),
                     second: "llm".into(),
+                    width_chars: 30,
                 },
             ],
             column_spacing_px: 16,
