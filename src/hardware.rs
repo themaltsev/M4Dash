@@ -1,6 +1,8 @@
 use crate::config::Settings;
 use serde::{Deserialize, Serialize};
 use std::{
+    io::{BufRead, BufReader},
+    process::{Command, Stdio},
     sync::{Arc, RwLock},
     thread,
     time::Duration,
@@ -25,8 +27,25 @@ pub struct Snapshot {
     pub networks: Vec<NetworkMetric>,
     pub sampled_unix_ms: u128,
 }
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtraSnapshot {
+    pub cpu_temperature_c: Option<f32>,
+    pub cpu_temperature_sensor: Option<String>,
+    pub motherboard_name: Option<String>,
+    pub motherboard_sensors: Vec<BoardSensor>,
+    pub provider_error: Option<String>,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardSensor {
+    pub name: String,
+    pub kind: String,
+    pub value: f32,
+}
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DiskMetric {
+    pub id: String,
     pub name: String,
     pub kind: String,
     pub total_bytes: u64,
@@ -40,7 +59,13 @@ pub struct NetworkMetric {
     pub sent_bytes_per_sec: u64,
 }
 
-pub fn start(out: Arc<RwLock<Snapshot>>, settings: Settings) {
+pub fn start(
+    out: Arc<RwLock<Snapshot>>,
+    extra: Arc<RwLock<ExtraSnapshot>>,
+    settings: Settings,
+    shutdown: Arc<std::sync::atomic::AtomicBool>,
+) {
+    start_lhm_provider(extra, shutdown);
     thread::Builder::new()
         .name("m4-hardware-monitor".into())
         .spawn(move || {
@@ -107,6 +132,11 @@ pub fn start(out: Arc<RwLock<Snapshot>>, settings: Settings) {
                         .map(|d| {
                             let usage = d.usage();
                             DiskMetric {
+                                id: format!(
+                                    "{}|{}",
+                                    d.mount_point().to_string_lossy(),
+                                    d.name().to_string_lossy()
+                                ),
                                 name: d.name().to_string_lossy().into_owned(),
                                 kind: format!("{:?}", d.kind()),
                                 total_bytes: d.total_space(),
@@ -136,4 +166,97 @@ pub fn start(out: Arc<RwLock<Snapshot>>, settings: Settings) {
             }
         })
         .expect("spawn hardware collector");
+}
+
+fn start_lhm_provider(
+    out: Arc<RwLock<ExtraSnapshot>>,
+    shutdown: Arc<std::sync::atomic::AtomicBool>,
+) {
+    thread::Builder::new()
+        .name("m4-lhm-hardware-provider".into())
+        .spawn(move || {
+            use std::os::windows::process::CommandExt;
+            use std::sync::atomic::Ordering;
+
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            let Some(dir) = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(ToOwned::to_owned))
+            else {
+                return;
+            };
+            let script = dir.join("hardware-sensors.ps1");
+            let library = dir.join("LibreHardwareMonitorLib.dll");
+            if !script.is_file() || !library.is_file() {
+                if let Ok(mut sample) = out.write() {
+                    sample.provider_error = Some("LHM sensor provider files are missing".into());
+                }
+                return;
+            }
+
+            let mut child = match Command::new("powershell.exe")
+                .args([
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                ])
+                .arg(script)
+                .arg("-LhmPath")
+                .arg(library)
+                .creation_flags(CREATE_NO_WINDOW)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+            {
+                Ok(child) => child,
+                Err(error) => {
+                    if let Ok(mut sample) = out.write() {
+                        sample.provider_error =
+                            Some(format!("Unable to start sensor provider: {error}"));
+                    }
+                    return;
+                }
+            };
+
+            if let Some(stdout) = child.stdout.take() {
+                let reader = BufReader::new(stdout);
+                for line in reader.lines() {
+                    if shutdown.load(Ordering::Acquire) {
+                        break;
+                    }
+                    match line {
+                        Ok(line) if !line.trim().is_empty() => {
+                            match serde_json::from_str::<ExtraSnapshot>(&line) {
+                                Ok(sample) => {
+                                    if let Ok(mut target) = out.write() {
+                                        *target = sample;
+                                    }
+                                }
+                                Err(error) => {
+                                    tracing::debug!("Invalid LHM sensor sample: {error}");
+                                    if let Ok(mut sample) = out.write() {
+                                        sample.provider_error =
+                                            Some(format!("Invalid LHM sample: {error}"));
+                                    }
+                                }
+                            }
+                        }
+                        Ok(_) => {}
+                        Err(error) => {
+                            tracing::warn!("LHM sensor provider stream failed: {error}");
+                            if let Ok(mut sample) = out.write() {
+                                sample.provider_error = Some(format!("LHM stream failed: {error}"));
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            let _ = child.kill();
+            let _ = child.wait();
+        })
+        .expect("spawn LHM hardware provider");
 }

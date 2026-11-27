@@ -13,7 +13,7 @@ mod taskbar;
 #[cfg(windows)]
 use anyhow::Result;
 #[cfg(windows)]
-use std::sync::{Arc, RwLock};
+use std::sync::{atomic::AtomicBool, Arc, RwLock};
 
 #[cfg(windows)]
 fn main() -> Result<()> {
@@ -27,13 +27,22 @@ fn main() -> Result<()> {
 
     let settings = config::Settings::load()?;
     let snapshot = Arc::new(RwLock::new(hardware::Snapshot::default()));
+    let extra = Arc::new(RwLock::new(hardware::ExtraSnapshot::default()));
     let llm_state = Arc::new(RwLock::new(llm::LlmSnapshot::default()));
-    hardware::start(snapshot.clone(), settings.clone());
+    let shutdown = Arc::new(AtomicBool::new(false));
+    hardware::start(
+        snapshot.clone(),
+        extra.clone(),
+        settings.clone(),
+        shutdown.clone(),
+    );
     llm::start(llm_state.clone(), settings.clone());
 
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("M4 PC Monitor")
+            .with_visible(true)
+            .with_active(true)
             .with_inner_size([900.0, 640.0])
             .with_min_inner_size([760.0, 520.0])
             .with_icon(std::sync::Arc::new(app::icon_data())),
@@ -44,7 +53,7 @@ fn main() -> Result<()> {
         options,
         Box::new(move |_cc| {
             Ok(Box::new(app::MonitorApp::new(
-                settings, snapshot, llm_state,
+                settings, snapshot, extra, llm_state, shutdown,
             )))
         }),
     )

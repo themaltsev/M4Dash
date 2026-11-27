@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 #[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;
-use std::{fs, path::PathBuf};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -19,6 +19,11 @@ pub struct Settings {
     pub show_disks: bool,
     pub show_network: bool,
     pub show_llm: bool,
+    pub show_motherboard: bool,
+    pub disk_visibility: BTreeMap<String, bool>,
+    pub network_visibility: BTreeMap<String, bool>,
+    pub custom_names: BTreeMap<String, String>,
+    pub taskbar_order: Vec<String>,
     pub font_size: f32,
     pub text_color: [u8; 3],
 }
@@ -38,6 +43,11 @@ impl Default for Settings {
             show_disks: true,
             show_network: true,
             show_llm: true,
+            show_motherboard: true,
+            disk_visibility: BTreeMap::new(),
+            network_visibility: BTreeMap::new(),
+            custom_names: BTreeMap::new(),
+            taskbar_order: Vec::new(),
             font_size: 14.0,
             text_color: [235, 235, 235],
         }
