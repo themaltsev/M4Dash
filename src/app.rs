@@ -595,13 +595,14 @@ impl MonitorApp {
             self.edit_name(ui, "ram", "RAM");
         });
         ui.label(format!(
-            "{} {}{:.1}/{:.1} GiB",
+            "{} {}{:.1}/{:.1} GiB ({})",
             x.memory_type.as_deref().unwrap_or("RAM"),
             x.memory_speed_mhz
                 .map(|mhz| format!("{:.1}GHz ", mhz as f64 / 1000.0))
                 .unwrap_or_default(),
             s.ram_used_bytes as f64 / 1073741824.0,
-            s.ram_total_bytes as f64 / 1073741824.0
+            s.ram_total_bytes as f64 / 1073741824.0,
+            ram_usage_percent(s)
         ));
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_motherboard, "");
@@ -1173,11 +1174,12 @@ fn taskbar_items(
                 .map(|mhz| format!("{:.1} GHz", mhz as f64 / 1000.0))
                 .unwrap_or_else(|| "N/A GHz".into());
             format!(
-                "{} {}: {:.0}/{:.0} GB",
+                "{} {}: {:.0}/{:.0} GB ({})",
                 name("ram", ram_type),
                 frequency,
                 s.ram_used_bytes as f64 / 1073741824.0,
-                s.ram_total_bytes as f64 / 1073741824.0
+                s.ram_total_bytes as f64 / 1073741824.0,
+                ram_usage_percent(s)
             )
         } else {
             String::new()
@@ -1299,6 +1301,14 @@ fn taskbar_items(
         ));
     }
     v
+}
+
+fn ram_usage_percent(s: &Snapshot) -> String {
+    if s.ram_total_bytes == 0 {
+        return "N/A".into();
+    }
+    let percent = (s.ram_used_bytes as f64 / s.ram_total_bytes as f64 * 100.0).clamp(0.0, 100.0);
+    format!("{percent:.0}%")
 }
 
 fn group_row_checkboxes(

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.43 — show RAM usage percentage
+
+- Append the used RAM percentage to the taskbar item and sensor settings preview.
+
 ## 0.1.42 — optional desktop shortcut
 
 - Add a localized, initially checked Setup checkbox to create the desktop shortcut.
