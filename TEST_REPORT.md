@@ -75,6 +75,14 @@
 - Root and taskbar viewports now explicitly request visible state; root also requests active state. Remote launch still reports `MainWindowHandle=0`, so a visible settings window is not verified via SSH/Task Scheduler.
 - App process is running in session 1; HKCU Run autostart is absent. Aggregate network block is implemented but must be confirmed interactively alongside taskbar ordering.
 
+## 2026-11-27 — Portable v0.1.6 taskbar/font/CPU update
+
+- Windows x64 `cargo check` and release build passed; v0.1.6 is deployed to the persistent Portable directory. Settings and desktop shortcut are preserved; autostart remains off.
+- Taskbar view now reparents the text window to `Shell_TrayWnd`, sets `WS_CHILD`, and positions it in the taskbar client area. Text labels use no-wrap mode, two lines per ordered column.
+- Appearance now offers system font choices; files for Segoe UI, Arial, and Consolas exist on HOME-PC.
+- Live provider probe on HOME-PC returns `Core (Tctl/Tdie)` about 43.5°C and the Gigabyte B550 board CPU sensor about 43°C. The provider script has a motherboard CPU-sensor fallback.
+- Important: the active HOME-PC GUI could not be inspected from SSH. A Task Scheduler screenshot/probe saw `Shell_TrayWnd` but did not find the M4 viewport; therefore actual child-parent attachment and visible CPU display still require owner-side confirmation from the desktop. The source does not claim these runtime checks passed.
+
 ## 2026-11-27 — Portable v0.1.3 sensor diagnostics
 
 - Release build v0.1.3 passed `cargo check` and `cargo build --release --target x86_64-pc-windows-gnu`; updated binary was copied to the persistent HOME-PC Portable directory without changing the existing 344-byte `settings.json`.

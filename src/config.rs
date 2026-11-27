@@ -25,6 +25,7 @@ pub struct Settings {
     pub custom_names: BTreeMap<String, String>,
     pub taskbar_order: Vec<String>,
     pub font_size: f32,
+    pub font_family: String,
     pub text_color: [u8; 3],
 }
 
@@ -49,6 +50,7 @@ impl Default for Settings {
             custom_names: BTreeMap::new(),
             taskbar_order: Vec::new(),
             font_size: 14.0,
+            font_family: "Segoe UI".into(),
             text_color: [235, 235, 235],
         }
     }

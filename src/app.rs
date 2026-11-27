@@ -27,6 +27,7 @@ pub struct MonitorApp {
     tab: usize,
     status: String,
     launch_at_login: bool,
+    active_font_family: String,
 }
 
 impl MonitorApp {
@@ -46,6 +47,7 @@ impl MonitorApp {
             tab: 0,
             status: String::new(),
             launch_at_login: crate::startup::is_enabled(),
+            active_font_family: String::new(),
         }
     }
     fn save(&mut self) {
@@ -132,6 +134,11 @@ fn pixel(rgba: &mut [u8], x: usize, y: usize, color: [u8; 4]) {
 impl eframe::App for MonitorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint_after(Duration::from_millis(self.settings.refresh_ms.max(200)));
+        if self.active_font_family != self.settings.font_family {
+            apply_system_font(ctx, &self.settings.font_family);
+            self.active_font_family
+                .clone_from(&self.settings.font_family);
+        }
         let s = self.hardware.read().map(|v| v.clone()).unwrap_or_default();
         let x = self.extra.read().map(|v| v.clone()).unwrap_or_default();
         let l = self.llm.read().map(|v| v.clone()).unwrap_or_default();
@@ -153,6 +160,8 @@ impl eframe::App for MonitorApp {
                 self.settings.font_size,
                 self.settings.text_color,
             );
+        } else {
+            crate::taskbar::hide_text_overlay(ctx);
         }
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -185,6 +194,19 @@ impl eframe::App for MonitorApp {
                     1 => self.layout_page(ui, &s),
                     2 => {
                         ui.heading("Оформление");
+                        egui::ComboBox::from_label("Шрифт")
+                            .selected_text(&self.settings.font_family)
+                            .show_ui(ui, |ui| {
+                                for family in
+                                    ["Segoe UI", "Arial", "Tahoma", "Consolas", "Cascadia Mono"]
+                                {
+                                    ui.selectable_value(
+                                        &mut self.settings.font_family,
+                                        family.to_owned(),
+                                        family,
+                                    );
+                                }
+                            });
                         ui.add(
                             egui::Slider::new(&mut self.settings.font_size, 9.0..=24.0)
                                 .text("Размер текста"),
@@ -209,6 +231,38 @@ impl eframe::App for MonitorApp {
             });
         });
     }
+}
+
+fn apply_system_font(ctx: &egui::Context, family: &str) {
+    let file = match family {
+        "Arial" => "arial.ttf",
+        "Tahoma" => "tahoma.ttf",
+        "Consolas" => "consola.ttf",
+        "Cascadia Mono" => "CascadiaMono.ttf",
+        _ => "segoeui.ttf",
+    };
+    let path = std::env::var_os("WINDIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from(r"C:\Windows"))
+        .join("Fonts")
+        .join(file);
+    let mut fonts = egui::FontDefinitions::default();
+    match std::fs::read(&path) {
+        Ok(bytes) => {
+            let key = format!("m4-system-font-{family}");
+            fonts.font_data.insert(
+                key.clone(),
+                std::sync::Arc::new(egui::FontData::from_owned(bytes)),
+            );
+            fonts
+                .families
+                .entry(egui::FontFamily::Proportional)
+                .or_default()
+                .insert(0, key);
+        }
+        Err(error) => tracing::warn!("Could not load font {}: {error}", path.display()),
+    }
+    ctx.set_fonts(fonts);
 }
 
 impl MonitorApp {

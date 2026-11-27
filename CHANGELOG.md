@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6 — taskbar child hosting, font selector, CPU fallback
+
+- Host the text renderer as a child window of `Shell_TrayWnd`, not a topmost window floating over the desktop.
+- Add system-font selection (Segoe UI, Arial, Tahoma, Consolas, Cascadia Mono) in Appearance.
+- Prevent wrapping within metric lines; preserve exactly two lines per taskbar item.
+- Fall back to the motherboard's CPU temperature sensor when the CPU Tctl/Tdie sensor is unavailable.
+
 ## 0.1.5 — explicit visible app windows
 
 - Explicitly request visible/active state for the settings window and visible state for the taskbar overlay on first creation.

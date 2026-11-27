@@ -76,6 +76,13 @@ try {
             $cpuTemp = [double]$fallback.value
             $cpuTempName = [string]$fallback.name
         }
+        if ($null -eq $cpuTemp) {
+            $boardCpu = $boardSensors | Where-Object { $_.kind -eq 'Temperature' -and $_.name -match 'CPU' } | Select-Object -First 1
+            if ($null -ne $boardCpu) {
+                $cpuTemp = [double]$boardCpu.value
+                $cpuTempName = "Motherboard: $($boardCpu.name)"
+            }
+        }
 
         $sample = [ordered]@{
             cpuTemperatureC = $cpuTemp
