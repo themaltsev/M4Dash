@@ -98,7 +98,7 @@ Section "M4Dash" SEC_MAIN
   WriteRegStr HKCU "Software\M4PCMonitor" "InstallDir" "$INSTDIR"
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "M4PCMonitor"
   StrCmp $0 "" skip_autostart_migration
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "M4PCMonitor" "$\"$INSTDIR\${APP_EXE}$\""
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "M4PCMonitor" "$\"$INSTDIR\${APP_EXE}$\" --background"
 skip_autostart_migration:
   Delete "$DESKTOP\M4 PC Monitor.lnk"
   Delete "$DESKTOP\M4Dash.lnk"

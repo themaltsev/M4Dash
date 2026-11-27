@@ -28,13 +28,13 @@ fn main() -> Result<()> {
         .with_target(false)
         .init();
 
-    // Read the persisted launch mode before single-instance handling and UAC
-    // relaunch so a second launch cannot unexpectedly surface the GUI in tray
-    // mode.
+    // Only Windows logon startup passes --background. A normal manual launch
+    // always opens the settings window, regardless of the autostart checkbox.
+    let launch_in_background = std::env::args_os().any(|arg| arg == "--background");
     let settings = config::Settings::load()?;
     let (instance_mutex, already_running) = single_instance_mutex()?;
     if already_running {
-        if !settings.start_in_tray {
+        if !launch_in_background {
             activate_existing_window();
         }
         let _ = unsafe { windows::Win32::Foundation::CloseHandle(instance_mutex) };
@@ -58,8 +58,13 @@ fn main() -> Result<()> {
             .chain(Some(0))
             .collect();
         let operation: Vec<u16> = "runas\0".encode_utf16().collect();
+        let parameters: Vec<u16> = if launch_in_background {
+            "--background\0".encode_utf16().collect()
+        } else {
+            vec![0]
+        };
         let _ = unsafe { windows::Win32::Foundation::CloseHandle(instance_mutex) };
-        let show_command = if settings.start_in_tray {
+        let show_command = if launch_in_background {
             SW_HIDE
         } else {
             SW_SHOWNORMAL
@@ -69,7 +74,7 @@ fn main() -> Result<()> {
                 None,
                 PCWSTR(operation.as_ptr()),
                 PCWSTR(exe.as_ptr()),
-                PCWSTR::null(),
+                PCWSTR(parameters.as_ptr()),
                 PCWSTR::null(),
                 show_command,
             )
@@ -95,8 +100,8 @@ fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("M4Dash")
-            .with_visible(!settings.start_in_tray)
-            .with_active(!settings.start_in_tray)
+            .with_visible(!launch_in_background)
+            .with_active(!launch_in_background)
             .with_inner_size([900.0, 640.0])
             .with_min_inner_size([760.0, 520.0])
             .with_icon(std::sync::Arc::new(app::icon_data())),
@@ -107,7 +112,12 @@ fn main() -> Result<()> {
         options,
         Box::new(move |_cc| {
             Ok(Box::new(app::MonitorApp::new(
-                settings, snapshot, extra, llm_state, shutdown,
+                settings,
+                snapshot,
+                extra,
+                llm_state,
+                shutdown,
+                launch_in_background,
             )))
         }),
     )

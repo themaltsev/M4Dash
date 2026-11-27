@@ -91,7 +91,7 @@ pub fn set_enabled(enabled: bool) -> Result<()> {
                 }
             })
             .unwrap_or(current_executable);
-        let command = format!("\"{}\"", executable.display());
+        let command = format!("\"{}\" --background", executable.display());
         let mut data: Vec<u16> = command.encode_utf16().collect();
         data.push(0);
         let bytes =

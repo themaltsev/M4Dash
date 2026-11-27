@@ -34,6 +34,7 @@ pub struct MonitorApp {
     tray_exit: tray_icon::menu::MenuId,
     exiting: bool,
     initial_visibility_pending: bool,
+    launch_in_background: bool,
     tray_actions: Arc<std::sync::atomic::AtomicU8>,
     tray_handlers_registered: bool,
     settings_save_deadline: Option<std::time::Instant>,
@@ -50,6 +51,7 @@ impl MonitorApp {
         extra: Arc<RwLock<ExtraSnapshot>>,
         llm: Arc<RwLock<LlmSnapshot>>,
         shutdown: Arc<std::sync::atomic::AtomicBool>,
+        launch_in_background: bool,
     ) -> Self {
         crate::updater::start_check();
         let system_theme_dark = crate::config::system_prefers_dark_theme();
@@ -84,6 +86,12 @@ impl MonitorApp {
                     .build()
                     .ok()
             });
+        let launch_at_login = crate::startup::is_enabled();
+        // Refresh the existing Run entry so installations created by earlier
+        // versions also pass the background-only startup argument.
+        if launch_at_login {
+            let _ = crate::startup::set_enabled(true);
+        }
         Self {
             settings,
             hardware,
@@ -93,13 +101,14 @@ impl MonitorApp {
             shutdown,
             tab: 0,
             status: String::new(),
-            launch_at_login: crate::startup::is_enabled(),
+            launch_at_login,
             active_language: None,
             tray,
             tray_open,
             tray_exit,
             exiting: false,
             initial_visibility_pending: true,
+            launch_in_background,
             tray_actions: Arc::new(std::sync::atomic::AtomicU8::new(0)),
             tray_handlers_registered: false,
             settings_save_deadline: None,
@@ -227,7 +236,7 @@ impl eframe::App for MonitorApp {
         }
         if self.initial_visibility_pending {
             self.initial_visibility_pending = false;
-            if self.settings.start_in_tray && self.tray.is_some() {
+            if self.launch_in_background && self.tray.is_some() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
             }
         }
@@ -1047,24 +1056,6 @@ impl MonitorApp {
                     );
                 }
             });
-        egui::ComboBox::from_label(crate::i18n::tr(language, "Открывать программу"))
-            .selected_text(if self.settings.start_in_tray {
-                crate::i18n::tr(language, "В трее")
-            } else {
-                crate::i18n::tr(language, "В окне")
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut self.settings.start_in_tray,
-                    true,
-                    crate::i18n::tr(language, "В трее"),
-                );
-                ui.selectable_value(
-                    &mut self.settings.start_in_tray,
-                    false,
-                    crate::i18n::tr(language, "В окне"),
-                );
-            });
         egui::ComboBox::from_label(crate::i18n::tr(language, "Интервал обновления"))
             .selected_text(format!("{} мс", self.settings.refresh_ms))
             .show_ui(ui, |ui| {
@@ -1080,7 +1071,7 @@ impl MonitorApp {
         if ui
             .checkbox(
                 &mut a,
-                crate::i18n::tr(language, "Запускать вместе с Windows"),
+                crate::i18n::tr(language, "Запускать вместе с Windows (в фоне)"),
             )
             .changed()
         {

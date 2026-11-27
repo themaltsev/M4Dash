@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.49 — launch in background like M4Speech
+
+- Replace the global startup visibility selector with a single Windows-startup checkbox that runs M4Dash hidden in the tray.
+- Keep manual launches opening the settings window and migrate existing enabled Run entries to the background argument.
+
 ## 0.1.48 — synchronize the native title bar theme
 
 - Apply the selected M4Dash light/dark colors to the Windows title bar and caption text.

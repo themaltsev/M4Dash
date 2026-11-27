@@ -29,11 +29,11 @@ Open **M4Dash** from the tray menu to edit settings:
 
 - **Sensors** — enable sensors and configure the local LM Studio API address and `lms.exe` path.
 - **Layout** — choose which values appear in each taskbar group, then arrange the groups and spacing.
-- **General** — choose startup in a window or directly in the tray, Windows startup, refresh interval, language, theme, and update controls.
+- **General** — configure background startup with Windows, refresh interval, language, theme, and update controls.
 
 The interface uses a larger Windows-style Segoe UI font. Font, text size, and color settings apply only to taskbar metrics. The theme can follow Windows (**System**) or be set to Light or Dark. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are also available.
 
-When **In tray** is selected, the main interface does not appear at startup. Taskbar metrics continue refreshing in the background; use the tray icon to open the window or exit.
+Launching M4Dash manually opens the settings window. Enable **Start with Windows (in the background)** to start hidden in the system tray at sign-in; taskbar metrics continue refreshing, and the tray icon can open the window or exit.
 
 ## Updates
 
