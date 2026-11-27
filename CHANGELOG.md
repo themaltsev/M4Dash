@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.23 — group sensor selection and compact CPU/RAM rows
+
+- Replace the two group row dropdowns with checkbox selection and expose individual motherboard sensors as selectable group items.
+- Render CPU as `CPU 3.7 GHz: 10% 35°C` and RAM as `DDR4 3.6 GHz: 14/32 GB · RAM BW N/A GB/s`; RAM bandwidth remains unavailable until a trustworthy provider exists.
+- Save settings automatically after edits (debounced, with a final save on exit); remove the manual save button and Network rename input.
+- Use `MBR` as the motherboard label by default and allow renaming individual motherboard sensors.
+
+
 ## 0.1.22 — cross-platform icon pack
 
 - Add the supplied SVG as the canonical icon source, with multi-resolution Windows ICO, macOS ICNS, Linux hicolor PNG/SVG assets, and an embedded app/tray icon.

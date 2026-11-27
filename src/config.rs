@@ -27,7 +27,7 @@ impl SpeedUnit {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LayoutGroup {
     pub first: String,
     pub second: String,
@@ -39,7 +39,7 @@ fn default_group_width() -> u16 {
     28
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub schema_version: u32,
@@ -58,6 +58,7 @@ pub struct Settings {
     pub show_motherboard: bool,
     pub disk_visibility: BTreeMap<String, bool>,
     pub network_visibility: BTreeMap<String, bool>,
+    pub motherboard_sensor_visibility: BTreeMap<String, bool>,
     pub disk_speed_units: BTreeMap<String, SpeedUnit>,
     pub network_speed_unit: SpeedUnit,
     pub custom_fonts: BTreeMap<String, String>,
@@ -89,6 +90,7 @@ impl Default for Settings {
             show_motherboard: true,
             disk_visibility: BTreeMap::new(),
             network_visibility: BTreeMap::new(),
+            motherboard_sensor_visibility: BTreeMap::new(),
             disk_speed_units: BTreeMap::new(),
             network_speed_unit: SpeedUnit::default(),
             custom_fonts: BTreeMap::new(),

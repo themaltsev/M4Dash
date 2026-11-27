@@ -107,3 +107,13 @@
 - Deployed to `C:\Users\user\AppData\Local\M4 PC Monitor Portable`; verified EXE and ICO exist, `settings.json` is preserved, and process PID 29800 is running.
 - Verified shortcut at `C:\Users\user\Desktop\M4 PC Monitor.lnk`, target `...\M4PCMonitor.exe`, icon `...\M4PCMonitor.ico,0`; HKCU Run autostart remains disabled.
 - This deployment check confirms packaging/paths/process only; no new sensor or taskbar-rendering claim is made here. TrafficMonitor was not modified.
+
+
+## 2026-11-27 — Portable v0.1.23 groups and sensor rows
+
+- Windows x64 release build passed after `cargo fmt`; Portable deployed through `scripts/deploy-portable.ps1` to the persistent HOME-PC directory.
+- Updated layout replaces row dropdowns with checkbox selection; individual motherboard sensors can be enabled for groups and renamed. Network rename input removed; motherboard fallback label is MBR.
+- Settings now auto-save after a 350 ms quiet period and again on exit; manual Save button removed. Existing `settings.json` remained present and was migrated with new defaults (2914 bytes after launch); autostart remains disabled.
+- The process is running in HOME-PC Portable (PID 39496), desktop shortcut targets the permanent EXE and ICO; deployed EXE SHA-256 is `6bc8fd5906553ab0ac281a10b8a7694ba077ba3601978a35685da16abeeb69d0`. SSH reports `MainWindowHandle=0` even though `start_in_tray=false`, so this remote deployment check does not confirm the visible settings window or taskbar rendering.
+- Investigated RAM bandwidth feasibility. Current LibreHardwareMonitor integration only reads the CPU/motherboard tree plus SMBIOS memory type/speed; its Memory hardware module exposes usage/load, while DIMM telemetry provides SPD timing/capacity/thermal fields rather than live DRAM throughput. RAM bandwidth is therefore rendered as N/A, not misrepresented by a disk or page-write counter.
+- TrafficMonitor was not changed.

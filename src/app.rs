@@ -35,6 +35,7 @@ pub struct MonitorApp {
     initial_visibility_pending: bool,
     tray_actions: Arc<std::sync::atomic::AtomicU8>,
     tray_handlers_registered: bool,
+    settings_save_deadline: Option<std::time::Instant>,
 }
 
 impl MonitorApp {
@@ -79,11 +80,12 @@ impl MonitorApp {
             initial_visibility_pending: true,
             tray_actions: Arc::new(std::sync::atomic::AtomicU8::new(0)),
             tray_handlers_registered: false,
+            settings_save_deadline: None,
         }
     }
     fn save(&mut self) {
         self.status = match self.settings.save() {
-            Ok(()) => "Настройки сохранены рядом с приложением".into(),
+            Ok(()) => "Изменения автоматически сохранены рядом с приложением".into(),
             Err(e) => format!("Ошибка сохранения: {e}"),
         };
     }
@@ -121,6 +123,9 @@ impl MonitorApp {
 
 impl Drop for MonitorApp {
     fn drop(&mut self) {
+        if let Err(error) = self.settings.save() {
+            tracing::warn!("Could not save portable settings on exit: {error}");
+        }
         self.shutdown
             .store(true, std::sync::atomic::Ordering::Release);
     }
@@ -137,6 +142,7 @@ pub fn icon_data() -> egui::IconData {
 impl eframe::App for MonitorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         use std::sync::atomic::Ordering;
+        let previous_settings = self.settings.clone();
         if !self.tray_handlers_registered {
             self.tray_handlers_registered = true;
             let actions = self.tray_actions.clone();
@@ -278,7 +284,7 @@ impl eframe::App for MonitorApp {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 match self.tab {
                     0 => self.sensor_page(ui, &s, &x, &l),
-                    1 => self.layout_page(ui, &s),
+                    1 => self.layout_page(ui, &s, &x),
                     2 => {
                         ui.heading("Оформление");
                         egui::ComboBox::from_label("Шрифт")
@@ -308,7 +314,6 @@ impl eframe::App for MonitorApp {
                                         self.settings.custom_fonts.insert(family.clone(), filename);
                                         self.settings.font_family = family.clone();
                                         self.active_font_family.clear();
-                                        self.save();
                                         self.status =
                                             format!("Шрифт {family} добавлен в Portable и выбран");
                                     }
@@ -334,14 +339,23 @@ impl eframe::App for MonitorApp {
                     _ => self.general_page(ui),
                 }
                 ui.separator();
-                ui.horizontal(|ui| {
-                    if ui.button("Сохранить настройки").clicked() {
-                        self.save();
-                    }
+                ui.label("Изменения автоматически сохраняются рядом с приложением.");
+                if !self.status.is_empty() {
                     ui.label(&self.status);
-                });
+                }
             });
         });
+        if self.settings != previous_settings {
+            self.settings_save_deadline =
+                Some(std::time::Instant::now() + Duration::from_millis(350));
+        }
+        if self
+            .settings_save_deadline
+            .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+        {
+            self.settings_save_deadline = None;
+            self.save();
+        }
     }
 }
 
@@ -562,7 +576,7 @@ impl MonitorApp {
         ));
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_motherboard, "");
-            self.edit_name(ui, "motherboard", "Материнская плата");
+            self.edit_name(ui, "motherboard", "MBR");
         });
         ui.label(
             x.motherboard_name
@@ -570,13 +584,26 @@ impl MonitorApp {
                 .unwrap_or("Материнская плата не обнаружена"),
         );
         for sensor in &x.motherboard_sensors {
-            ui.label(format!(
-                "{} {}: {:.0}{}",
-                sensor.kind,
-                sensor.name,
-                sensor.value,
-                if sensor.kind == "Fan" { " RPM" } else { "°C" }
-            ));
+            let key = board_sensor_key(sensor);
+            let mut selected = self
+                .settings
+                .motherboard_sensor_visibility
+                .get(&key)
+                .copied()
+                .unwrap_or(false);
+            let default_name = format!("{} {}", sensor.kind, sensor.name);
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut selected, "");
+                self.edit_name(ui, &key, &default_name);
+                ui.label(format!(
+                    "{:.0}{}",
+                    sensor.value,
+                    board_sensor_unit(&sensor.kind)
+                ));
+            });
+            self.settings
+                .motherboard_sensor_visibility
+                .insert(key, selected);
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_disks, "");
@@ -617,7 +644,7 @@ impl MonitorApp {
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_network, "");
-            self.edit_name(ui, "network", "Сеть (суммарно)");
+            ui.label("Сеть (суммарно)");
         });
         ui.horizontal(|ui| {
             ui.label("Скорость суммы:");
@@ -663,7 +690,7 @@ impl MonitorApp {
                 .unwrap_or_default()
         ));
     }
-    fn layout_page(&mut self, ui: &mut egui::Ui, s: &Snapshot) {
+    fn layout_page(&mut self, ui: &mut egui::Ui, s: &Snapshot, x: &ExtraSnapshot) {
         ui.heading("Порядок показателей в панели задач");
         ui.label(
             "Здесь показаны только включённые блоки и устройства. Порядок сохраняется рядом с EXE.",
@@ -684,11 +711,7 @@ impl MonitorApp {
             (self.settings.show_ram, "ram", "RAM"),
             (self.settings.show_gpu, "gpu", "GPU"),
             (self.settings.show_llm, "llm", "LM Studio"),
-            (
-                self.settings.show_motherboard,
-                "motherboard",
-                "Материнская плата",
-            ),
+            (self.settings.show_motherboard, "motherboard", "MBR"),
         ] {
             if enabled {
                 choices.push((key.into(), label.into()));
@@ -708,36 +731,33 @@ impl MonitorApp {
                 }
             }
         }
+        if self.settings.show_motherboard {
+            for sensor in &x.motherboard_sensors {
+                let key = board_sensor_key(sensor);
+                if self
+                    .settings
+                    .motherboard_sensor_visibility
+                    .get(&key)
+                    .copied()
+                    .unwrap_or(false)
+                {
+                    let default_name = format!("{} {}", sensor.kind, sensor.name);
+                    choices.push((key.clone(), self.name(&key, &default_name)));
+                }
+            }
+        }
         let mut delete = None;
         for (index, group) in self.settings.layout_groups.iter_mut().enumerate() {
             ui.horizontal(|ui| {
                 ui.label(format!("Группа {}", index + 1));
-                for (slot, value) in [&mut group.first, &mut group.second]
-                    .into_iter()
-                    .enumerate()
-                {
-                    let label = choices
-                        .iter()
-                        .find(|(key, _)| key == value)
-                        .map(|(_, label)| label.as_str())
-                        .unwrap_or(if value.is_empty() {
-                            "Не выбрано"
-                        } else {
-                            "Датчик выключен"
-                        });
-                    egui::ComboBox::from_id_salt(("layout-group", index, slot))
-                        .selected_text(label)
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(value, String::new(), "Не выбрано");
-                            for (key, label) in &choices {
-                                ui.selectable_value(value, key.clone(), label);
-                            }
-                        });
-                }
                 if ui.button("Удалить").clicked() {
                     delete = Some(index);
                 }
             });
+            ui.label("Верхняя строка");
+            group_row_checkboxes(ui, &mut group.first, &choices);
+            ui.label("Нижняя строка");
+            group_row_checkboxes(ui, &mut group.second, &choices);
             ui.add(
                 egui::Slider::new(&mut group.width_chars, 8..=80).text("Ширина группы (символов)"),
             );
@@ -845,27 +865,31 @@ fn taskbar_items(
     if settings.show_cpu || settings.show_ram {
         let cpu_line = if settings.show_cpu {
             format!(
-                "{}: {:.0}% {} {:.1} GHz",
+                "{} {} GHz: {:.0}% {}",
                 name("cpu", "CPU"),
+                if s.cpu_frequency_mhz > 0 {
+                    format!("{:.1}", s.cpu_frequency_mhz as f64 / 1000.0)
+                } else {
+                    "N/A".into()
+                },
                 s.cpu_usage,
                 x.cpu_temperature_c
                     .map(|temperature| format!("{temperature:.0}°C"))
                     .unwrap_or_else(|| "N/A".into()),
-                s.cpu_frequency_mhz as f64 / 1000.0
             )
         } else {
             String::new()
         };
         let ram_line = if settings.show_ram {
             let ram_type = x.memory_type.as_deref().unwrap_or("RAM");
-            let speed = x
+            let frequency = x
                 .memory_speed_mhz
-                .map(|mhz| format!("{:.1}GHz ", mhz as f64 / 1000.0))
-                .unwrap_or_default();
+                .map(|mhz| format!("{:.1} GHz", mhz as f64 / 1000.0))
+                .unwrap_or_else(|| "N/A GHz".into());
             format!(
-                "{} {}{:.1}/{:.1} GiB",
+                "{} {}: {:.0}/{:.0} GB · RAM BW N/A GB/s",
                 name("ram", ram_type),
-                speed,
+                frequency,
                 s.ram_used_bytes as f64 / 1073741824.0,
                 s.ram_total_bytes as f64 / 1073741824.0
             )
@@ -875,7 +899,7 @@ fn taskbar_items(
         v.push(("cpu_ram".into(), cpu_line, ram_line));
     }
     if settings.show_motherboard {
-        if let Some(board) = &x.motherboard_name {
+        if x.motherboard_name.is_some() {
             let vals = x
                 .motherboard_sensors
                 .iter()
@@ -884,7 +908,24 @@ fn taskbar_items(
                 .map(|q| format!("{} {:.0}°", q.name, q.value))
                 .collect::<Vec<_>>()
                 .join(" · ");
-            v.push(("motherboard".into(), name("motherboard", board), vals));
+            v.push(("motherboard".into(), name("motherboard", "MBR"), vals));
+        }
+        for sensor in &x.motherboard_sensors {
+            let key = board_sensor_key(sensor);
+            if settings
+                .motherboard_sensor_visibility
+                .get(&key)
+                .copied()
+                .unwrap_or(false)
+            {
+                let default_name = format!("{} {}", sensor.kind, sensor.name);
+                let unit = board_sensor_unit(&sensor.kind);
+                v.push((
+                    key.clone(),
+                    name(&key, &default_name),
+                    format!("{:.0}{unit}", sensor.value),
+                ));
+            }
         }
     }
     let gpu_line = if settings.show_gpu {
@@ -972,6 +1013,51 @@ fn taskbar_items(
         ));
     }
     v
+}
+
+fn group_row_checkboxes(ui: &mut egui::Ui, selected: &mut String, choices: &[(String, String)]) {
+    ui.horizontal_wrapped(|ui| {
+        let mut none = selected.is_empty();
+        if ui.checkbox(&mut none, "Не выбрано").clicked() {
+            selected.clear();
+        }
+        for (key, label) in choices {
+            let mut checked = *selected == *key;
+            if ui.checkbox(&mut checked, label).changed() {
+                if checked {
+                    selected.clone_from(key);
+                } else if *selected == *key {
+                    selected.clear();
+                }
+            }
+        }
+    });
+}
+
+fn board_sensor_key(sensor: &crate::hardware::BoardSensor) -> String {
+    format!("board-sensor:{}:{}", sensor.kind, sensor.name)
+}
+
+fn board_sensor_unit(kind: &str) -> &'static str {
+    match kind {
+        "Temperature" => "°C",
+        "Fan" => " RPM",
+        "Voltage" => " V",
+        "Clock" => " MHz",
+        "Load" | "Control" | "Level" | "Humidity" => "%",
+        "Power" => " W",
+        "Flow" => " L/h",
+        "Energy" => " mWh",
+        "Noise" => " dBA",
+        "Conductivity" => " µS/cm",
+        "Data" => " B",
+        "Throughput" => " B/s",
+        "TimeSpan" => " s",
+        "Timing" => " ns",
+        "Frequency" => " Hz",
+        "Factor" => "×",
+        _ => "",
+    }
 }
 
 fn grouped_items(
