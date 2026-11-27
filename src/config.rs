@@ -80,7 +80,7 @@ impl Default for Settings {
             lms_path: String::new(),
             show_taskbar: true,
             start_in_tray: false,
-            dark_theme: true,
+            dark_theme: false,
             show_cpu: true,
             show_gpu: true,
             show_ram: true,

@@ -264,9 +264,7 @@ impl eframe::App for MonitorApp {
             });
             ui.separator();
             ui.horizontal_wrapped(|ui| {
-                for (i, title) in ["Датчики", "Расположение", "Оформление", "Общие"]
-                    .iter()
-                    .enumerate()
+                for (i, title) in ["Датчики", "Расположение", "Общие"].iter().enumerate()
                 {
                     if ui.selectable_label(self.tab == i, *title).clicked() {
                         self.tab = i;
@@ -279,56 +277,6 @@ impl eframe::App for MonitorApp {
                 match self.tab {
                     0 => self.sensor_page(ui, &s, &x, &l),
                     1 => self.layout_page(ui, &s, &x),
-                    2 => {
-                        ui.heading("Оформление");
-                        egui::ComboBox::from_label("Шрифт")
-                            .selected_text(&self.settings.font_family)
-                            .show_ui(ui, |ui| {
-                                for family in
-                                    ["Segoe UI", "Arial", "Tahoma", "Consolas", "Cascadia Mono"]
-                                {
-                                    ui.selectable_value(
-                                        &mut self.settings.font_family,
-                                        family.to_owned(),
-                                        family,
-                                    );
-                                }
-                                for family in self.settings.custom_fonts.keys() {
-                                    ui.selectable_value(
-                                        &mut self.settings.font_family,
-                                        family.clone(),
-                                        family,
-                                    );
-                                }
-                            });
-                        if ui.button("Добавить шрифт…").clicked() {
-                            match choose_font_file() {
-                                Ok(Some(path)) => match install_custom_font(&path) {
-                                    Ok((family, filename)) => {
-                                        self.settings.custom_fonts.insert(family.clone(), filename);
-                                        self.settings.font_family = family.clone();
-                                        self.active_font_family.clear();
-                                        self.status =
-                                            format!("Шрифт {family} добавлен в Portable и выбран");
-                                    }
-                                    Err(error) => {
-                                        self.status = format!("Не удалось добавить шрифт: {error}")
-                                    }
-                                },
-                                Ok(None) => {}
-                                Err(error) => {
-                                    self.status =
-                                        format!("Не удалось открыть выбор шрифта: {error}")
-                                }
-                            }
-                        }
-                        ui.add(
-                            egui::Slider::new(&mut self.settings.font_size, 9.0..=24.0)
-                                .text("Размер текста"),
-                        );
-                        ui.color_edit_button_srgb(&mut self.settings.text_color);
-                        ui.checkbox(&mut self.settings.dark_theme, "Тёмная тема");
-                    }
                     _ => self.general_page(ui),
                 }
                 ui.separator();
@@ -347,6 +295,13 @@ impl eframe::App for MonitorApp {
         {
             self.settings_save_deadline = None;
             self.save();
+        }
+        if ctx.style().visuals.dark_mode != self.settings.dark_theme {
+            ctx.set_visuals(if self.settings.dark_theme {
+                egui::Visuals::dark()
+            } else {
+                egui::Visuals::light()
+            });
         }
     }
 }
@@ -838,6 +793,36 @@ impl MonitorApp {
             self.update_autostart(a);
         }
         ui.label("Настройки сохраняются рядом с EXE и переживают обновление Portable.");
+        ui.separator();
+        ui.heading("Оформление");
+        egui::ComboBox::from_label("Шрифт")
+            .selected_text(&self.settings.font_family)
+            .show_ui(ui, |ui| {
+                for family in ["Segoe UI", "Arial", "Tahoma", "Consolas", "Cascadia Mono"] {
+                    ui.selectable_value(&mut self.settings.font_family, family.to_owned(), family);
+                }
+                for family in self.settings.custom_fonts.keys() {
+                    ui.selectable_value(&mut self.settings.font_family, family.clone(), family);
+                }
+            });
+        if ui.button("Добавить шрифт…").clicked() {
+            match choose_font_file() {
+                Ok(Some(path)) => match install_custom_font(&path) {
+                    Ok((family, filename)) => {
+                        self.settings.custom_fonts.insert(family.clone(), filename);
+                        self.settings.font_family = family.clone();
+                        self.active_font_family.clear();
+                        self.status = format!("Шрифт {family} добавлен в Portable и выбран");
+                    }
+                    Err(error) => self.status = format!("Не удалось добавить шрифт: {error}"),
+                },
+                Ok(None) => {}
+                Err(error) => self.status = format!("Не удалось открыть выбор шрифта: {error}"),
+            }
+        }
+        ui.add(egui::Slider::new(&mut self.settings.font_size, 9.0..=24.0).text("Размер текста"));
+        ui.color_edit_button_srgb(&mut self.settings.text_color);
+        ui.checkbox(&mut self.settings.dark_theme, "Тёмная тема");
     }
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.27 — make theme selection work
+
+- Apply the selected light/dark egui visuals and make light theme the default for fresh settings.
+- Move all appearance controls into the General tab and remove the separate Appearance tab.
+
+
 ## 0.1.26 — consolidate LM Studio settings
 
 - Move LM Studio block name, API address, and `lms.exe` path controls into the Sensors tab and remove the separate LM Studio tab.
