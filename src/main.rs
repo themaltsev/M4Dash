@@ -10,6 +10,8 @@ mod llm;
 mod startup;
 #[cfg(windows)]
 mod taskbar;
+#[cfg(windows)]
+mod updater;
 
 #[cfg(windows)]
 use anyhow::Result;

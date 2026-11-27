@@ -1,7 +1,7 @@
-param([string]$Configuration = "release")
+param([string]$Configuration = "release", [string]$TargetTriple = "x86_64-pc-windows-gnu")
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$exe = Join-Path $root "target\x86_64-pc-windows-gnu\$Configuration\M4PCMonitor.exe"
+$exe = Join-Path $root "target\$TargetTriple\$Configuration\M4PCMonitor.exe"
 $icon = Join-Path $root 'assets\M4PCMonitor.ico'
 $readme = Join-Path $root 'README_Portable.md'
 $sensorScript = Join-Path $root 'assets\hardware-sensors.ps1'

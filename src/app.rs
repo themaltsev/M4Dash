@@ -1,5 +1,5 @@
 use crate::{
-    config::{Settings, SpeedUnit},
+    config::{Settings, SpeedUnit, ThemeMode},
     hardware::{ExtraSnapshot, Snapshot},
     llm::{LlmPhase, LlmSnapshot},
 };
@@ -38,6 +38,8 @@ pub struct MonitorApp {
     tray_actions: Arc<std::sync::atomic::AtomicU8>,
     tray_handlers_registered: bool,
     settings_save_deadline: Option<std::time::Instant>,
+    system_theme_dark: bool,
+    system_theme_checked_at: std::time::Instant,
 }
 
 impl MonitorApp {
@@ -48,6 +50,8 @@ impl MonitorApp {
         llm: Arc<RwLock<LlmSnapshot>>,
         shutdown: Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
+        crate::updater::start_check();
+        let system_theme_dark = crate::config::system_prefers_dark_theme();
         let overlay_settings = Arc::new(RwLock::new(settings.clone()));
         start_taskbar_refresh(
             overlay_settings.clone(),
@@ -98,6 +102,8 @@ impl MonitorApp {
             tray_actions: Arc::new(std::sync::atomic::AtomicU8::new(0)),
             tray_handlers_registered: false,
             settings_save_deadline: None,
+            system_theme_dark,
+            system_theme_checked_at: std::time::Instant::now(),
         }
     }
     fn save(&mut self) {
@@ -224,7 +230,10 @@ impl eframe::App for MonitorApp {
         }
         let actions =
             self.tray_actions.swap(0, Ordering::AcqRel) | TASKBAR_ACTION.swap(0, Ordering::AcqRel);
-        if actions & 2 != 0 {
+        if crate::updater::update_ready() {
+            self.exiting = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        } else if actions & 2 != 0 {
             self.exiting = true;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         } else if actions & 1 != 0 {
@@ -240,6 +249,12 @@ impl eframe::App for MonitorApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
         }
         ctx.request_repaint_after(Duration::from_millis(self.settings.refresh_ms.max(200)));
+        if self.settings.theme_mode == ThemeMode::System
+            && self.system_theme_checked_at.elapsed() >= Duration::from_secs(1)
+        {
+            self.system_theme_dark = crate::config::system_prefers_dark_theme();
+            self.system_theme_checked_at = std::time::Instant::now();
+        }
         if self.active_font_family != self.settings.font_family
             || self.active_language != Some(language)
         {
@@ -301,7 +316,7 @@ impl eframe::App for MonitorApp {
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("M4 PC Monitor");
-                ui.label("Portable · Windows 11 x64");
+                ui.label("Windows 11 x64");
             });
             ui.separator();
             ui.horizontal_wrapped(|ui| {
@@ -340,8 +355,9 @@ impl eframe::App for MonitorApp {
             self.settings_save_deadline = None;
             self.save();
         }
-        if ctx.style().visuals.dark_mode != self.settings.dark_theme {
-            ctx.set_visuals(if self.settings.dark_theme {
+        let dark_theme = self.settings.theme_mode.is_dark(self.system_theme_dark);
+        if ctx.style().visuals.dark_mode != dark_theme {
+            ctx.set_visuals(if dark_theme {
                 egui::Visuals::dark()
             } else {
                 egui::Visuals::light()
@@ -904,12 +920,34 @@ impl MonitorApp {
     }
     fn general_page(&mut self, ui: &mut egui::Ui) {
         let language = self.settings.language;
-        ui.heading(crate::i18n::tr(language, "Общие настройки · Portable"));
+        ui.heading(crate::i18n::tr(language, "Общие настройки"));
         egui::ComboBox::from_label(crate::i18n::tr(language, "Язык"))
             .selected_text(language.label())
             .show_ui(ui, |ui| {
                 for option in crate::config::Language::ALL {
                     ui.selectable_value(&mut self.settings.language, option, option.label());
+                }
+            });
+        egui::ComboBox::from_label(crate::i18n::tr(language, "Тема приложения"))
+            .selected_text(crate::i18n::tr(
+                language,
+                match self.settings.theme_mode {
+                    ThemeMode::System => "Как в системе",
+                    ThemeMode::Light => "Светлая",
+                    ThemeMode::Dark => "Тёмная",
+                },
+            ))
+            .show_ui(ui, |ui| {
+                for (mode, label) in [
+                    (ThemeMode::System, "Как в системе"),
+                    (ThemeMode::Light, "Светлая"),
+                    (ThemeMode::Dark, "Тёмная"),
+                ] {
+                    ui.selectable_value(
+                        &mut self.settings.theme_mode,
+                        mode,
+                        crate::i18n::tr(language, label),
+                    );
                 }
             });
         egui::ComboBox::from_label(crate::i18n::tr(language, "Открывать программу"))
@@ -1004,10 +1042,6 @@ impl MonitorApp {
                 .text(crate::i18n::tr(language, "Размер текста")),
         );
         ui.color_edit_button_srgb(&mut self.settings.text_color);
-        ui.checkbox(
-            &mut self.settings.dark_theme,
-            crate::i18n::tr(language, "Тёмная тема"),
-        );
     }
 }
 

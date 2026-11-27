@@ -1,0 +1,44 @@
+name: Windows installer and Portable release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis --yes --no-progress
+      - name: Build Windows application
+        shell: pwsh
+        run: cargo build --release --target x86_64-pc-windows-msvc
+      - name: Package Portable and Setup
+        shell: pwsh
+        run: ./scripts/build-windows-setup.ps1 -Configuration release -TargetTriple x86_64-pc-windows-msvc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M4-PC-Monitor-Windows-${{ github.ref_name }}
+          path: |
+            artifacts/M4PCMonitor-Portable-*.zip
+            artifacts/M4-PC-Monitor-Setup-*.exe
+            artifacts/M4-PC-Monitor-Setup-*.exe.sha256
+          if-no-files-found: error
+      - name: Publish GitHub release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/M4PCMonitor-Portable-*.zip
+            artifacts/M4-PC-Monitor-Setup-*.exe
+            artifacts/M4-PC-Monitor-Setup-*.exe.sha256

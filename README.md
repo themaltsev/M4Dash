@@ -1,43 +1,30 @@
-# M4 PC Monitor — Portable
+# M4 PC Monitor — Windows x64
 
-Portable-монитор аппаратных показателей и локального LM Studio для Windows 11 x64. Приложение написано на Rust; NSIS-установщик пока не входит в рабочий этап.
+Hardware and local LM Studio monitor for Windows 11 x64. Current installers and Portable archives are published on [GitHub Releases](https://github.com/themaltsev/m4-pc-monitor/releases/latest).
 
-## Запуск
+## Install
 
-Распакуйте `M4PCMonitor.exe` и `M4PCMonitor.ico` в доступную для записи папку и запустите EXE. Приложение автоматически создаёт `settings.json` рядом с собой. Для обновления заменяется только EXE — настройки и иконка остаются на месте. Настройки хранятся в UTF-8 JSON и автоматически атомарно сохраняются после изменения (с короткой задержкой) и при выходе.
+- **Setup:** run `M4-PC-Monitor-Setup-<version>-x64.exe`. It installs per-user under `%LOCALAPPDATA%\Programs\M4 PC Monitor`, creates Start Menu and desktop shortcuts, and preserves settings when updating in place.
+- **Portable:** extract the full `M4PCMonitor-Portable-<version>-x64.zip` into a writable folder and run `M4PCMonitor.exe`. Keep `settings.json` beside the executable when replacing files.
 
-По умолчанию путь к `lms.exe` ищется в `%USERPROFILE%\.lmstudio\bin\lms.exe`; адрес API LM Studio — `http://127.0.0.1:1234`. Автозапуск Windows управляется отдельной галочкой и по умолчанию выключен.
+The application checks GitHub Releases at startup. If a newer version has a Windows Setup asset, it asks before downloading; after confirmation it validates the executable (and the SHA-256 sidecar when present), exits, installs into the current application folder, and restarts. Settings are not replaced by Setup updates. Windows may request elevation when launching because LibreHardwareMonitor needs it for some sensors.
 
-## Набор иконок
+## Settings
 
-Исходная иконка находится в `assets/icons/M4PCMonitor.svg`. В репозитории есть Windows ICO (16–256 px), macOS ICNS (16–1024 px) и Linux hicolor PNG плюс scalable SVG. При добавлении других платформ используются те же исходник и цветовая схема. Portable-пакет также содержит весь каталог `icons/`; ярлык Windows использует `M4PCMonitor.ico`.
+- **Sensors:** detected hardware and LM Studio API/CLI configuration.
+- **Layout:** select sensor rows, groups, order, and column spacing for the taskbar overlay.
+- **General:** startup mode (`In a window` or `In tray`), Windows autostart, refresh interval, language, and appearance. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are available. Theme defaults to **System** and can be switched to Light or Dark. Font, text size, and color are also here.
 
-## Сейчас реализовано
+In tray startup, the main window stays hidden while taskbar metrics continue refreshing. CPU and motherboard sensors come from LibreHardwareMonitor; network, disks, GPU, and local LM Studio are polled by the app. RAM bandwidth is not shown unless a trustworthy live provider becomes available.
 
-- Настройки LM Studio находятся внизу вкладки «Датчики»; отдельной вкладки LM Studio больше нет.
+## Build
 
-- Группы панели задач используют включаемые чекбоксами верхние/нижние строки; отдельные датчики материнской платы можно выбирать для групп. CPU выводится вместе с частотой и температурой, RAM — с частотой и объёмом. Текущая сборка не показывает RAM bandwidth: провайдер для Ryzen 5000 не подтверждён, и значение не подменяется другим счётчиком.
-
-- Живое окно настроек и автообнаружение CPU, RAM, дисковых томов, сетевых интерфейсов и NVIDIA GPU через NVML.
-- CPU/GPU load, частота CPU, RAM, GPU VRAM/температура; дисковые и сетевые скорости.
-- Сбор состояния LM Studio из `lms log stream --source runtime` и локального models API. Консольный процесс запускается без видимого окна.
-- Taskbar progress indicator Windows показывает текущую загрузку CPU на кнопке приложения.
-- Пользовательский автозапуск через HKCU Run; выключен по умолчанию.
-- Иконка приложения и переносимые настройки рядом с EXE.
-
-## Сборка из исходников
+The release workflow builds the Windows MSVC binary, Portable ZIP, NSIS Setup, and SHA-256 sidecar on Windows. To build the app locally with the GNU target:
 
 ```powershell
 cargo build --release --target x86_64-pc-windows-gnu
+./scripts/package-portable.ps1 -TargetTriple x86_64-pc-windows-gnu
+./scripts/build-windows-setup.ps1 -TargetTriple x86_64-pc-windows-gnu
 ```
 
-Артефакт: `target\x86_64-pc-windows-gnu\release\M4PCMonitor.exe`.
-
-## Ограничения текущей итерации
-
-- CPU temperature сейчас отображается как N/A: не подключён независимый portable-поставщик CPU Tctl/Tdie. Значения материнской ACPI-зоны не выдаются за температуру CPU.
-- В Taskbar пока используется штатный индикатор прогресса (CPU); двухстрочный настраиваемый текстовый рендерер ещё не сделан.
-- Вкладки настройки порядка/колонок и tray-интерфейс будут дорабатываться отдельно.
-- Если LM Studio не запущена или модель не загружена, приложение честно показывает соответствующий статус.
-
-Текущую runtime-проверку Windows см. в [TEST_REPORT.md](TEST_REPORT.md), план итераций — в [PROGRESS.md](PROGRESS.md).
+The setup script requires NSIS 3. macOS and Linux currently have no native app build; the icon artwork in the repository is not a functional cross-platform port.

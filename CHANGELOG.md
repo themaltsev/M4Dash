@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.32 — system theme and Windows setup/update
+
+- Replace the light/dark checkbox with System, Light, and Dark theme modes; follow Windows preference by default and migrate saved legacy choices.
+- Check GitHub Releases on startup and offer updates; download and validate the Windows setup only after confirmation, then update in place while preserving settings.
+- Provide an NSIS Windows installer and a reproducible setup packaging script.
+
 ## 0.1.31 — keep taskbar metrics live in tray mode
 
 - Refresh the native taskbar overlay from a background worker so telemetry continues when the main window is hidden and egui no longer emits frames.

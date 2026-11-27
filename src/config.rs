@@ -80,6 +80,73 @@ impl Language {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThemeMode {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+impl ThemeMode {
+    pub fn is_dark(self, system_is_dark: bool) -> bool {
+        match self {
+            Self::System => system_is_dark,
+            Self::Light => false,
+            Self::Dark => true,
+        }
+    }
+}
+
+#[cfg(windows)]
+pub fn system_prefers_dark_theme() -> bool {
+    use windows::{
+        core::PCWSTR,
+        Win32::System::Registry::{
+            RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE,
+            REG_VALUE_TYPE,
+        },
+    };
+
+    let key_name: Vec<u16> = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let value_name: Vec<u16> = "AppsUseLightTheme".encode_utf16().chain(Some(0)).collect();
+    let mut key = HKEY::default();
+    if unsafe {
+        RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(key_name.as_ptr()),
+            None,
+            KEY_QUERY_VALUE,
+            &mut key,
+        )
+    }
+    .is_err()
+    {
+        return false;
+    }
+
+    let mut value = 1u32;
+    let mut value_size = std::mem::size_of::<u32>() as u32;
+    let mut value_type = REG_VALUE_TYPE(0);
+    let queried = unsafe {
+        RegQueryValueExW(
+            key,
+            PCWSTR(value_name.as_ptr()),
+            None,
+            Some(&mut value_type),
+            Some((&mut value as *mut u32).cast()),
+            Some(&mut value_size),
+        )
+    }
+    .is_ok();
+    let _ = unsafe { RegCloseKey(key) };
+    queried && value_size >= std::mem::size_of::<u32>() as u32 && value == 0
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LayoutGroup {
     pub first: String,
@@ -97,12 +164,15 @@ fn default_group_width() -> u16 {
 pub struct Settings {
     pub schema_version: u32,
     pub language: Language,
+    #[serde(default)]
+    pub theme_mode: ThemeMode,
+    #[serde(default, rename = "dark_theme", skip_serializing)]
+    pub legacy_dark_theme: Option<bool>,
     pub refresh_ms: u64,
     pub llm_api: String,
     pub lms_path: String,
     pub show_taskbar: bool,
     pub start_in_tray: bool,
-    pub dark_theme: bool,
     pub show_cpu: bool,
     pub show_gpu: bool,
     pub show_ram: bool,
@@ -128,14 +198,15 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            schema_version: 1,
+            schema_version: 2,
             language: Language::default(),
+            theme_mode: ThemeMode::System,
+            legacy_dark_theme: None,
             refresh_ms: 200,
             llm_api: "http://127.0.0.1:1234".into(),
             lms_path: String::new(),
             show_taskbar: true,
             start_in_tray: false,
-            dark_theme: false,
             show_cpu: true,
             show_gpu: true,
             show_ram: true,
@@ -189,7 +260,16 @@ impl Settings {
         match fs::read(&path) {
             Ok(bytes) => match serde_json::from_slice::<Self>(&bytes) {
                 Ok(mut s) => {
-                    s.schema_version = 1;
+                    if let Some(was_dark) = s.legacy_dark_theme.take() {
+                        // Older settings only represented a dark-mode checkbox.
+                        // Preserve an explicit dark choice; unchecked now follows system.
+                        s.theme_mode = if was_dark {
+                            ThemeMode::Dark
+                        } else {
+                            ThemeMode::System
+                        };
+                    }
+                    s.schema_version = 2;
                     Ok(s)
                 }
                 Err(e) => {
