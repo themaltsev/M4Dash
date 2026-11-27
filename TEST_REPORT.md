@@ -130,3 +130,9 @@
 - Windows x64 release build passed; removed the always-visible autosave hint so the settings footer no longer repeats the autosave status.
 - Deployed to HOME-PC Portable with settings preserved (2914 bytes), shortcut target/icon intact, and autostart disabled. Process PID 38452 is running; remote `MainWindowHandle=0` means the duplicate-free visual footer itself was not inspected on desktop.
 - TrafficMonitor was not changed.
+
+## 2026-11-27 — Portable v0.1.26 LM Studio settings location
+
+- Windows x64 release build passed. LM Studio block name, API address, and `lms.exe` path controls moved below hardware sensors; the separate tab was removed and remaining tab indices adjusted.
+- Deployed to HOME-PC Portable; existing settings file remained present (2914 bytes), shortcut target/icon remain valid, autostart is disabled, and process PID 11688 is running.
+- Remote process check reports `MainWindowHandle=0`; the new tab placement was not visually verified through SSH. TrafficMonitor was not changed.

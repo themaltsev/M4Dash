@@ -264,15 +264,9 @@ impl eframe::App for MonitorApp {
             });
             ui.separator();
             ui.horizontal_wrapped(|ui| {
-                for (i, title) in [
-                    "Датчики",
-                    "Расположение",
-                    "Оформление",
-                    "LM Studio",
-                    "Общие",
-                ]
-                .iter()
-                .enumerate()
+                for (i, title) in ["Датчики", "Расположение", "Оформление", "Общие"]
+                    .iter()
+                    .enumerate()
                 {
                     if ui.selectable_label(self.tab == i, *title).clicked() {
                         self.tab = i;
@@ -335,7 +329,6 @@ impl eframe::App for MonitorApp {
                         ui.color_edit_button_srgb(&mut self.settings.text_color);
                         ui.checkbox(&mut self.settings.dark_theme, "Тёмная тема");
                     }
-                    3 => self.llm_page(ui),
                     _ => self.general_page(ui),
                 }
                 ui.separator();
@@ -688,6 +681,8 @@ impl MonitorApp {
                 .map(|v| format!("{v:.2} токен/с"))
                 .unwrap_or_default()
         ));
+        ui.separator();
+        self.llm_page(ui);
     }
     fn layout_page(&mut self, ui: &mut egui::Ui, s: &Snapshot, x: &ExtraSnapshot) {
         ui.heading("Порядок показателей в панели задач");

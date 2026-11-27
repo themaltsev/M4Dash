@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.26 — consolidate LM Studio settings
+
+- Move LM Studio block name, API address, and `lms.exe` path controls into the Sensors tab and remove the separate LM Studio tab.
+
+
 ## 0.1.25 — remove duplicate autosave hint
 
 - Remove the persistent autosave helper line; the footer now displays only the single status message after a settings change.
