@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.30 — start hidden in tray mode
+
+- Create the main window hidden when the saved startup mode is the system tray, so it no longer flashes open before being hidden.
+
+
 ## 0.1.29 — default to English
 
 - Set English as the default interface language, including when older settings files do not yet contain a language choice.

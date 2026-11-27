@@ -80,7 +80,7 @@ fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("M4 PC Monitor")
-            .with_visible(true)
+            .with_visible(!settings.start_in_tray)
             .with_active(!settings.start_in_tray)
             .with_inner_size([900.0, 640.0])
             .with_min_inner_size([760.0, 520.0])
