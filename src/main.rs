@@ -4,6 +4,7 @@
 mod app;
 mod config;
 mod hardware;
+mod i18n;
 mod llm;
 #[cfg(windows)]
 mod startup;

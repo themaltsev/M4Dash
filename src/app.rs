@@ -28,6 +28,7 @@ pub struct MonitorApp {
     status: String,
     launch_at_login: bool,
     active_font_family: String,
+    active_language: Option<crate::config::Language>,
     tray: Option<tray_icon::TrayIcon>,
     tray_open: tray_icon::menu::MenuId,
     tray_exit: tray_icon::menu::MenuId,
@@ -47,8 +48,13 @@ impl MonitorApp {
         shutdown: Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
         let menu = tray_icon::menu::Menu::new();
-        let open = tray_icon::menu::MenuItem::new("Открыть", true, None);
-        let exit = tray_icon::menu::MenuItem::new("Выход", true, None);
+        let open = tray_icon::menu::MenuItem::new(
+            crate::i18n::tr(settings.language, "Открыть"),
+            true,
+            None,
+        );
+        let exit =
+            tray_icon::menu::MenuItem::new(crate::i18n::tr(settings.language, "Выход"), true, None);
         let tray_open = open.id().clone();
         let tray_exit = exit.id().clone();
         let _ = menu.append_items(&[&open, &exit]);
@@ -73,6 +79,7 @@ impl MonitorApp {
             status: String::new(),
             launch_at_login: crate::startup::is_enabled(),
             active_font_family: String::new(),
+            active_language: None,
             tray,
             tray_open,
             tray_exit,
@@ -85,8 +92,15 @@ impl MonitorApp {
     }
     fn save(&mut self) {
         self.status = match self.settings.save() {
-            Ok(()) => "Изменения автоматически сохранены рядом с приложением".into(),
-            Err(e) => format!("Ошибка сохранения: {e}"),
+            Ok(()) => crate::i18n::tr(
+                self.settings.language,
+                "Изменения автоматически сохранены рядом с приложением",
+            )
+            .into(),
+            Err(e) => format!(
+                "{}: {e}",
+                crate::i18n::tr(self.settings.language, "Ошибка сохранения")
+            ),
         };
     }
     fn update_autostart(&mut self, enabled: bool) {
@@ -94,13 +108,18 @@ impl MonitorApp {
             Ok(()) => {
                 self.launch_at_login = enabled;
                 self.status = if enabled {
-                    "Автозапуск включён"
+                    crate::i18n::tr(self.settings.language, "Автозапуск включён")
                 } else {
-                    "Автозапуск выключен"
+                    crate::i18n::tr(self.settings.language, "Автозапуск выключен")
                 }
                 .into();
             }
-            Err(e) => self.status = format!("Не удалось изменить автозапуск: {e}"),
+            Err(e) => {
+                self.status = format!(
+                    "{}: {e}",
+                    crate::i18n::tr(self.settings.language, "Не удалось изменить автозапуск")
+                )
+            }
         }
     }
     fn name(&self, key: &str, fallback: &str) -> String {
@@ -142,6 +161,7 @@ pub fn icon_data() -> egui::IconData {
 impl eframe::App for MonitorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         use std::sync::atomic::Ordering;
+        let language = self.settings.language;
         let previous_settings = self.settings.clone();
         if !self.tray_handlers_registered {
             self.tray_handlers_registered = true;
@@ -207,15 +227,23 @@ impl eframe::App for MonitorApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
         }
         ctx.request_repaint_after(Duration::from_millis(self.settings.refresh_ms.max(200)));
-        if self.active_font_family != self.settings.font_family {
+        if self.active_font_family != self.settings.font_family
+            || self.active_language != Some(language)
+        {
             let custom_path = self
                 .settings
                 .custom_fonts
                 .get(&self.settings.font_family)
                 .map(|file| portable_font_dir().join(file));
-            apply_selected_font(ctx, &self.settings.font_family, custom_path.as_deref());
+            apply_selected_font(
+                ctx,
+                &self.settings.font_family,
+                custom_path.as_deref(),
+                language,
+            );
             self.active_font_family
                 .clone_from(&self.settings.font_family);
+            self.active_language = Some(language);
         }
         let s = self.hardware.read().map(|v| v.clone()).unwrap_or_default();
         let x = self.extra.read().map(|v| v.clone()).unwrap_or_default();
@@ -266,7 +294,10 @@ impl eframe::App for MonitorApp {
             ui.horizontal_wrapped(|ui| {
                 for (i, title) in ["Датчики", "Расположение", "Общие"].iter().enumerate()
                 {
-                    if ui.selectable_label(self.tab == i, *title).clicked() {
+                    if ui
+                        .selectable_label(self.tab == i, crate::i18n::tr(language, title))
+                        .clicked()
+                    {
                         self.tab = i;
                     }
                 }
@@ -322,7 +353,12 @@ fn wake_native_window() {
     }
 }
 
-fn apply_selected_font(ctx: &egui::Context, family: &str, custom_path: Option<&Path>) {
+fn apply_selected_font(
+    ctx: &egui::Context,
+    family: &str,
+    custom_path: Option<&Path>,
+    language: crate::config::Language,
+) {
     if let Some(path) = custom_path {
         match std::fs::read(path) {
             Ok(bytes) => {
@@ -337,6 +373,7 @@ fn apply_selected_font(ctx: &egui::Context, family: &str, custom_path: Option<&P
                     .entry(egui::FontFamily::Proportional)
                     .or_default()
                     .insert(0, key);
+                add_language_font_fallback(&mut fonts, language);
                 ctx.set_fonts(fonts);
                 return;
             }
@@ -371,7 +408,38 @@ fn apply_selected_font(ctx: &egui::Context, family: &str, custom_path: Option<&P
         }
         Err(error) => tracing::warn!("Could not load font {}: {error}", path.display()),
     }
+    add_language_font_fallback(&mut fonts, language);
     ctx.set_fonts(fonts);
+}
+
+fn add_language_font_fallback(
+    fonts: &mut egui::FontDefinitions,
+    language: crate::config::Language,
+) {
+    let (filename, key) = match language {
+        crate::config::Language::Chinese => ("msyh.ttc", "m4-language-fallback-chinese"),
+        crate::config::Language::Persian => ("arial.ttf", "m4-language-fallback-persian"),
+        _ => return,
+    };
+    let path = std::env::var_os("WINDIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from(r"C:\Windows"))
+        .join("Fonts")
+        .join(filename);
+    let Ok(bytes) = std::fs::read(&path) else {
+        tracing::warn!("Could not load language fallback font {}", path.display());
+        return;
+    };
+    fonts.font_data.insert(
+        key.into(),
+        std::sync::Arc::new(egui::FontData::from_owned(bytes)),
+    );
+    for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+        let fonts_for_family = fonts.families.entry(family).or_default();
+        if !fonts_for_family.iter().any(|entry| entry == key) {
+            fonts_for_family.insert(1.min(fonts_for_family.len()), key.into());
+        }
+    }
 }
 
 fn portable_font_dir() -> PathBuf {
@@ -425,7 +493,7 @@ fn install_custom_font(source: &Path) -> anyhow::Result<(String, String)> {
     Ok((family, filename))
 }
 
-fn choose_font_file() -> anyhow::Result<Option<PathBuf>> {
+fn choose_font_file(language: crate::config::Language) -> anyhow::Result<Option<PathBuf>> {
     use windows::{
         core::{PCWSTR, PWSTR},
         Win32::{
@@ -440,7 +508,12 @@ fn choose_font_file() -> anyhow::Result<Option<PathBuf>> {
     let filter: Vec<u16> = "Font files (*.ttf;*.otf)\0*.ttf;*.otf\0All files (*.*)\0*.*\0\0"
         .encode_utf16()
         .collect();
-    let title: Vec<u16> = "Добавить шрифт в M4 PC Monitor\0".encode_utf16().collect();
+    let title: Vec<u16> = format!(
+        "{}\0",
+        crate::i18n::tr(language, "Добавить шрифт в M4 PC Monitor")
+    )
+    .encode_utf16()
+    .collect();
     let mut buffer = vec![0u16; 32_768];
     let mut dialog = OPENFILENAMEW::default();
     dialog.lStructSize = std::mem::size_of::<OPENFILENAMEW>() as u32;
@@ -464,49 +537,64 @@ fn choose_font_file() -> anyhow::Result<Option<PathBuf>> {
 
 impl MonitorApp {
     fn sensor_page(&mut self, ui: &mut egui::Ui, s: &Snapshot, x: &ExtraSnapshot, l: &LlmSnapshot) {
-        ui.heading("Датчики и обнаруженное оборудование");
-        ui.label("Оборудование определяется автоматически; выберите блоки и устройства для панели задач.");
+        let language = self.settings.language;
+        ui.heading(crate::i18n::tr(
+            language,
+            "Датчики и обнаруженное оборудование",
+        ));
+        ui.label(crate::i18n::tr(language, "Оборудование определяется автоматически; выберите блоки и устройства для панели задач."));
         ui.separator();
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_cpu, "");
             self.edit_name(ui, "cpu", "CPU");
         });
-        ui.label(format!(
+        ui.label(crate::i18n::tr_format(
+            language,
             "{} · {} потоков · {:.0}% · {} MHz · температура {}",
-            s.cpu_name,
-            s.cpu_threads,
-            s.cpu_usage,
-            s.cpu_frequency_mhz,
-            x.cpu_temperature_c
-                .map(|v| format!("{v:.0}°C"))
-                .unwrap_or_else(|| "N/A".into())
+            &[
+                s.cpu_name.clone(),
+                s.cpu_threads.to_string(),
+                format!("{:.0}", s.cpu_usage),
+                s.cpu_frequency_mhz.to_string(),
+                x.cpu_temperature_c
+                    .map(|v| format!("{v:.0}°C"))
+                    .unwrap_or_else(|| "N/A".into()),
+            ],
         ));
         if let Some(error) = &x.provider_error {
             ui.colored_label(
                 egui::Color32::LIGHT_RED,
-                format!("Провайдер датчиков: {error}"),
+                format!(
+                    "{}: {error}",
+                    crate::i18n::tr(language, "Провайдер датчиков")
+                ),
             );
         } else {
-            ui.weak(format!(
+            ui.weak(crate::i18n::tr_format(
+                language,
                 "Источник температуры: {}",
-                x.cpu_temperature_sensor
+                &[x.cpu_temperature_sensor
                     .as_deref()
-                    .unwrap_or("ожидание данных")
+                    .unwrap_or(crate::i18n::tr(language, "ожидание данных"))
+                    .to_owned()],
             ));
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_gpu, "");
             self.edit_name(ui, "gpu", "NVIDIA GPU");
         });
-        ui.label(format!(
+        ui.label(crate::i18n::tr_format(
+            language,
             "{} · загрузка {} · VRAM {}/{} MiB · температура {}",
-            s.gpu_name.as_deref().unwrap_or("N/A"),
-            opt(s.gpu_utilization_pct),
-            opt(s.vram_used_mib),
-            opt(s.vram_total_mib),
-            s.gpu_temp_c
-                .map(|v| format!("{v}°C"))
-                .unwrap_or_else(|| "N/A".into())
+            &[
+                s.gpu_name.as_deref().unwrap_or("N/A").to_owned(),
+                opt(s.gpu_utilization_pct),
+                opt(s.vram_used_mib),
+                opt(s.vram_total_mib),
+                s.gpu_temp_c
+                    .map(|v| format!("{v}°C"))
+                    .unwrap_or_else(|| "N/A".into()),
+            ],
         ));
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_ram, "");
@@ -528,7 +616,7 @@ impl MonitorApp {
         ui.label(
             x.motherboard_name
                 .as_deref()
-                .unwrap_or("Материнская плата не обнаружена"),
+                .unwrap_or(crate::i18n::tr(language, "Материнская плата не обнаружена")),
         );
         for sensor in &x.motherboard_sensors {
             let key = board_sensor_key(sensor);
@@ -554,7 +642,7 @@ impl MonitorApp {
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_disks, "");
-            ui.label("Диски");
+            ui.label(crate::i18n::tr(language, "Диски"));
         });
         for d in &s.disks {
             let id = format!("disk:{}", d.id);
@@ -579,22 +667,25 @@ impl MonitorApp {
             self.settings
                 .disk_speed_units
                 .insert(d.id.clone(), selected_unit);
-            ui.label(format!(
+            ui.label(crate::i18n::tr_format(
+                language,
                 "{} · {:.1} GiB · чтение {:.2} {} · запись {:.2} {}",
-                d.kind,
-                d.total_bytes as f64 / 1073741824.0,
-                selected_unit.value(d.read_bytes_per_sec),
-                selected_unit.label(),
-                selected_unit.value(d.written_bytes_per_sec),
-                selected_unit.label()
+                &[
+                    d.kind.clone(),
+                    format!("{:.1}", d.total_bytes as f64 / 1073741824.0),
+                    format!("{:.2}", selected_unit.value(d.read_bytes_per_sec)),
+                    selected_unit.label().into(),
+                    format!("{:.2}", selected_unit.value(d.written_bytes_per_sec)),
+                    selected_unit.label().into(),
+                ],
             ));
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_network, "");
-            ui.label("Сеть (суммарно)");
+            ui.label(crate::i18n::tr(language, "Сеть (суммарно)"));
         });
         ui.horizontal(|ui| {
-            ui.label("Скорость суммы:");
+            ui.label(crate::i18n::tr(language, "Скорость суммы:"));
             speed_unit_selector(
                 ui,
                 "aggregate-network-speed-unit",
@@ -630,32 +721,50 @@ impl MonitorApp {
         });
         ui.label(format!(
             "{} · {} · {}",
-            l.model.as_deref().unwrap_or("Модель не обнаружена"),
-            phase_name(l.phase),
+            l.model
+                .as_deref()
+                .unwrap_or(crate::i18n::tr(language, "Модель не обнаружена")),
+            phase_name(l.phase, language),
             l.speed_tps
-                .map(|v| format!("{v:.2} токен/с"))
+                .map(|v| format!("{v:.2} {}", crate::i18n::tr(language, "токен/с")))
                 .unwrap_or_default()
         ));
         ui.separator();
         self.llm_page(ui);
     }
     fn layout_page(&mut self, ui: &mut egui::Ui, s: &Snapshot, x: &ExtraSnapshot) {
-        ui.heading("Порядок показателей в панели задач");
-        ui.label(
+        let language = self.settings.language;
+        ui.heading(crate::i18n::tr(
+            language,
+            "Порядок показателей в панели задач",
+        ));
+        ui.label(crate::i18n::tr(
+            language,
             "Здесь показаны только включённые блоки и устройства. Порядок сохраняется рядом с EXE.",
-        );
+        ));
         ui.add(
             egui::Slider::new(&mut self.settings.column_spacing_px, 0..=100)
-                .text("Отступ между колонками")
+                .text(crate::i18n::tr(language, "Отступ между колонками"))
                 .suffix(" px"),
         );
         ui.separator();
-        ui.heading("Пользовательские группы");
-        ui.label("В каждой группе выберите верхнюю и нижнюю строку из включённых датчиков.");
+        ui.heading(crate::i18n::tr(language, "Пользовательские группы"));
+        ui.label(crate::i18n::tr(
+            language,
+            "В каждой группе выберите верхнюю и нижнюю строку из включённых датчиков.",
+        ));
         let mut choices: Vec<(String, String)> = Vec::new();
         for (enabled, key, label) in [
-            (self.settings.show_network, "network:rx", "Сеть ↓"),
-            (self.settings.show_network, "network:tx", "Сеть ↑"),
+            (
+                self.settings.show_network,
+                "network:rx",
+                crate::i18n::tr(language, "Сеть ↓"),
+            ),
+            (
+                self.settings.show_network,
+                "network:tx",
+                crate::i18n::tr(language, "Сеть ↑"),
+            ),
             (self.settings.show_cpu, "cpu", "CPU"),
             (self.settings.show_ram, "ram", "RAM"),
             (self.settings.show_gpu, "gpu", "GPU"),
@@ -698,24 +807,32 @@ impl MonitorApp {
         let mut delete = None;
         for (index, group) in self.settings.layout_groups.iter_mut().enumerate() {
             ui.horizontal(|ui| {
-                ui.label(format!("Группа {}", index + 1));
-                if ui.button("Удалить").clicked() {
+                ui.label(crate::i18n::tr_format(
+                    language,
+                    "Группа {}",
+                    &[format!("{}", index + 1)],
+                ));
+                if ui.button(crate::i18n::tr(language, "Удалить")).clicked() {
                     delete = Some(index);
                 }
             });
-            ui.label("Верхняя строка");
-            group_row_checkboxes(ui, &mut group.first, &choices);
-            ui.label("Нижняя строка");
-            group_row_checkboxes(ui, &mut group.second, &choices);
+            ui.label(crate::i18n::tr(language, "Верхняя строка"));
+            group_row_checkboxes(ui, &mut group.first, &choices, language);
+            ui.label(crate::i18n::tr(language, "Нижняя строка"));
+            group_row_checkboxes(ui, &mut group.second, &choices, language);
             ui.add(
-                egui::Slider::new(&mut group.width_chars, 8..=80).text("Ширина группы (символов)"),
+                egui::Slider::new(&mut group.width_chars, 8..=80)
+                    .text(crate::i18n::tr(language, "Ширина группы (символов)")),
             );
         }
         if let Some(index) = delete {
             self.settings.layout_groups.remove(index);
             self.settings.taskbar_order.clear();
         }
-        if ui.button("Добавить группу").clicked() {
+        if ui
+            .button(crate::i18n::tr(language, "Добавить группу"))
+            .clicked()
+        {
             self.settings
                 .layout_groups
                 .push(crate::config::LayoutGroup {
@@ -729,12 +846,15 @@ impl MonitorApp {
         for (index, _) in self.settings.layout_groups.iter().enumerate() {
             items.push((
                 format!("group:{index}"),
-                format!("Группа {}", index + 1),
+                crate::i18n::tr_format(language, "Группа {}", &[format!("{}", index + 1)]),
                 String::new(),
             ));
         }
         if items.is_empty() {
-            ui.weak("Нет включённых блоков для панели задач.");
+            ui.weak(crate::i18n::tr(
+                language,
+                "Нет включённых блоков для панели задач.",
+            ));
             return;
         }
         let keys = ordered_keys(&mut self.settings.taskbar_order, &items);
@@ -757,27 +877,47 @@ impl MonitorApp {
         }
     }
     fn llm_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Настройки LM Studio");
-        ui.label("Название блока");
+        let language = self.settings.language;
+        ui.heading(crate::i18n::tr(language, "Настройки LM Studio"));
+        ui.label(crate::i18n::tr(language, "Название блока"));
         self.edit_name(ui, "llm", "LM Studio");
-        ui.label("Адрес API");
+        ui.label(crate::i18n::tr(language, "Адрес API"));
         ui.text_edit_singleline(&mut self.settings.llm_api);
-        ui.label("Путь к lms.exe (пусто — автообнаружение)");
+        ui.label(crate::i18n::tr(
+            language,
+            "Путь к lms.exe (пусто — автообнаружение)",
+        ));
         ui.text_edit_singleline(&mut self.settings.lms_path);
     }
     fn general_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Общие настройки · Portable");
-        egui::ComboBox::from_label("Открывать программу")
+        let language = self.settings.language;
+        ui.heading(crate::i18n::tr(language, "Общие настройки · Portable"));
+        egui::ComboBox::from_label(crate::i18n::tr(language, "Язык"))
+            .selected_text(language.label())
+            .show_ui(ui, |ui| {
+                for option in crate::config::Language::ALL {
+                    ui.selectable_value(&mut self.settings.language, option, option.label());
+                }
+            });
+        egui::ComboBox::from_label(crate::i18n::tr(language, "Открывать программу"))
             .selected_text(if self.settings.start_in_tray {
-                "В трее"
+                crate::i18n::tr(language, "В трее")
             } else {
-                "В окне"
+                crate::i18n::tr(language, "В окне")
             })
             .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.settings.start_in_tray, true, "В трее");
-                ui.selectable_value(&mut self.settings.start_in_tray, false, "В окне");
+                ui.selectable_value(
+                    &mut self.settings.start_in_tray,
+                    true,
+                    crate::i18n::tr(language, "В трее"),
+                );
+                ui.selectable_value(
+                    &mut self.settings.start_in_tray,
+                    false,
+                    crate::i18n::tr(language, "В окне"),
+                );
             });
-        egui::ComboBox::from_label("Интервал обновления")
+        egui::ComboBox::from_label(crate::i18n::tr(language, "Интервал обновления"))
             .selected_text(format!("{} мс", self.settings.refresh_ms))
             .show_ui(ui, |ui| {
                 for ms in [500, 1000, 2000] {
@@ -786,16 +926,25 @@ impl MonitorApp {
             });
         ui.checkbox(
             &mut self.settings.show_taskbar,
-            "Показывать текстовый мониторинг в панели задач",
+            crate::i18n::tr(language, "Показывать текстовый мониторинг в панели задач"),
         );
         let mut a = self.launch_at_login;
-        if ui.checkbox(&mut a, "Запускать вместе с Windows").changed() {
+        if ui
+            .checkbox(
+                &mut a,
+                crate::i18n::tr(language, "Запускать вместе с Windows"),
+            )
+            .changed()
+        {
             self.update_autostart(a);
         }
-        ui.label("Настройки сохраняются рядом с EXE и переживают обновление Portable.");
+        ui.label(crate::i18n::tr(
+            language,
+            "Настройки сохраняются рядом с EXE и переживают обновление Portable.",
+        ));
         ui.separator();
-        ui.heading("Оформление");
-        egui::ComboBox::from_label("Шрифт")
+        ui.heading(crate::i18n::tr(language, "Оформление"));
+        egui::ComboBox::from_label(crate::i18n::tr(language, "Шрифт"))
             .selected_text(&self.settings.font_family)
             .show_ui(ui, |ui| {
                 for family in ["Segoe UI", "Arial", "Tahoma", "Consolas", "Cascadia Mono"] {
@@ -805,24 +954,47 @@ impl MonitorApp {
                     ui.selectable_value(&mut self.settings.font_family, family.clone(), family);
                 }
             });
-        if ui.button("Добавить шрифт…").clicked() {
-            match choose_font_file() {
+        if ui
+            .button(crate::i18n::tr(language, "Добавить шрифт…"))
+            .clicked()
+        {
+            match choose_font_file(language) {
                 Ok(Some(path)) => match install_custom_font(&path) {
                     Ok((family, filename)) => {
                         self.settings.custom_fonts.insert(family.clone(), filename);
                         self.settings.font_family = family.clone();
                         self.active_font_family.clear();
-                        self.status = format!("Шрифт {family} добавлен в Portable и выбран");
+                        self.status = crate::i18n::tr_format(
+                            language,
+                            "Шрифт {} добавлен в Portable и выбран",
+                            &[family],
+                        );
                     }
-                    Err(error) => self.status = format!("Не удалось добавить шрифт: {error}"),
+                    Err(error) => {
+                        self.status = format!(
+                            "{}: {error}",
+                            crate::i18n::tr(language, "Не удалось добавить шрифт")
+                        )
+                    }
                 },
                 Ok(None) => {}
-                Err(error) => self.status = format!("Не удалось открыть выбор шрифта: {error}"),
+                Err(error) => {
+                    self.status = format!(
+                        "{}: {error}",
+                        crate::i18n::tr(language, "Не удалось открыть выбор шрифта")
+                    )
+                }
             }
         }
-        ui.add(egui::Slider::new(&mut self.settings.font_size, 9.0..=24.0).text("Размер текста"));
+        ui.add(
+            egui::Slider::new(&mut self.settings.font_size, 9.0..=24.0)
+                .text(crate::i18n::tr(language, "Размер текста")),
+        );
         ui.color_edit_button_srgb(&mut self.settings.text_color);
-        ui.checkbox(&mut self.settings.dark_theme, "Тёмная тема");
+        ui.checkbox(
+            &mut self.settings.dark_theme,
+            crate::i18n::tr(language, "Тёмная тема"),
+        );
     }
 }
 
@@ -994,10 +1166,18 @@ fn taskbar_items(
     v
 }
 
-fn group_row_checkboxes(ui: &mut egui::Ui, selected: &mut String, choices: &[(String, String)]) {
+fn group_row_checkboxes(
+    ui: &mut egui::Ui,
+    selected: &mut String,
+    choices: &[(String, String)],
+    language: crate::config::Language,
+) {
     ui.horizontal_wrapped(|ui| {
         let mut none = selected.is_empty();
-        if ui.checkbox(&mut none, "Не выбрано").clicked() {
+        if ui
+            .checkbox(&mut none, crate::i18n::tr(language, "Не выбрано"))
+            .clicked()
+        {
             selected.clear();
         }
         for (key, label) in choices {
@@ -1102,16 +1282,16 @@ fn ordered_keys(order: &mut Vec<String>, items: &[(String, String, String)]) -> 
 fn opt<T: std::fmt::Display>(v: Option<T>) -> String {
     v.map(|x| x.to_string()).unwrap_or_else(|| "N/A".into())
 }
-fn phase_name(p: LlmPhase) -> &'static str {
+fn phase_name(p: LlmPhase, language: crate::config::Language) -> &'static str {
     match p {
-        LlmPhase::Loading => "Загрузка",
-        LlmPhase::Preparing => "Подготовка",
-        LlmPhase::Pp => "Prompt processing",
-        LlmPhase::Tg => "Генерация",
-        LlmPhase::Unloading => "Выгрузка",
-        LlmPhase::Idle => "Ожидание",
-        LlmPhase::Offline => "LM Studio offline",
-        LlmPhase::Unknown => "Статус неизвестен",
-        LlmPhase::NoModel => "Нет загруженной модели",
+        LlmPhase::Loading => crate::i18n::tr(language, "Загрузка"),
+        LlmPhase::Preparing => crate::i18n::tr(language, "Подготовка"),
+        LlmPhase::Pp => crate::i18n::tr(language, "Prompt processing"),
+        LlmPhase::Tg => crate::i18n::tr(language, "Генерация"),
+        LlmPhase::Unloading => crate::i18n::tr(language, "Выгрузка"),
+        LlmPhase::Idle => crate::i18n::tr(language, "Ожидание"),
+        LlmPhase::Offline => crate::i18n::tr(language, "LM Studio offline"),
+        LlmPhase::Unknown => crate::i18n::tr(language, "Статус неизвестен"),
+        LlmPhase::NoModel => crate::i18n::tr(language, "Нет загруженной модели"),
     }
 }

@@ -27,6 +27,59 @@ impl SpeedUnit {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    #[default]
+    Russian,
+    English,
+    PortugueseBrazil,
+    Persian,
+    Spanish,
+    French,
+    Italian,
+    Chinese,
+}
+
+impl Language {
+    pub const ALL: [Self; 8] = [
+        Self::Russian,
+        Self::English,
+        Self::PortugueseBrazil,
+        Self::Persian,
+        Self::Spanish,
+        Self::French,
+        Self::Italian,
+        Self::Chinese,
+    ];
+
+    pub fn index(self) -> usize {
+        match self {
+            Self::Russian => 0,
+            Self::English => 1,
+            Self::PortugueseBrazil => 2,
+            Self::Persian => 3,
+            Self::Spanish => 4,
+            Self::French => 5,
+            Self::Italian => 6,
+            Self::Chinese => 7,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Russian => "🇷🇺 Русский",
+            Self::English => "🇬🇧 English",
+            Self::PortugueseBrazil => "🇧🇷 Português (Brasil)",
+            Self::Persian => "🇮🇷 فارسی",
+            Self::Spanish => "🇪🇸 Español",
+            Self::French => "🇫🇷 Français",
+            Self::Italian => "🇮🇹 Italiano",
+            Self::Chinese => "🇨🇳 中文",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LayoutGroup {
     pub first: String,
@@ -43,6 +96,7 @@ fn default_group_width() -> u16 {
 #[serde(default)]
 pub struct Settings {
     pub schema_version: u32,
+    pub language: Language,
     pub refresh_ms: u64,
     pub llm_api: String,
     pub lms_path: String,
@@ -75,6 +129,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             schema_version: 1,
+            language: Language::default(),
             refresh_ms: 200,
             llm_api: "http://127.0.0.1:1234".into(),
             lms_path: String::new(),

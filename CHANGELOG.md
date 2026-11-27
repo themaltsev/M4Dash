@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.28 — add multilingual interface
+
+- Add persistent language selection in General: Russian, English, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese.
+- Localize the main tabs and sensor, layout, LM Studio, and General settings UI.
+
+
 ## 0.1.27 — make theme selection work
 
 - Apply the selected light/dark egui visuals and make light theme the default for fresh settings.
