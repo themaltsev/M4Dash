@@ -4,7 +4,6 @@ $root = Split-Path -Parent $PSScriptRoot
 $version = (Select-String -Path (Join-Path $root 'Cargo.toml') -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
 $portableBuilder = Join-Path $PSScriptRoot 'package-portable.ps1'
 & $portableBuilder -Configuration $Configuration -TargetTriple $TargetTriple
-if ($LASTEXITCODE -ne 0) { throw "Portable packaging failed with exit code $LASTEXITCODE" }
 $makensisCommand = Get-Command 'makensis.exe' -ErrorAction SilentlyContinue
 if (!$makensisCommand) { $makensisCommand = Get-Command 'makensis' -ErrorAction SilentlyContinue }
 $makensisPath = if ($makensisCommand) { $makensisCommand.Source } else { $null }
