@@ -40,6 +40,7 @@ pub struct MonitorApp {
     system_theme_dark: bool,
     system_theme_checked_at: std::time::Instant,
     system_accent_color: [u8; 3],
+    applied_titlebar_dark: Option<bool>,
 }
 
 impl MonitorApp {
@@ -105,6 +106,7 @@ impl MonitorApp {
             system_theme_dark,
             system_theme_checked_at: std::time::Instant::now(),
             system_accent_color,
+            applied_titlebar_dark: None,
         }
     }
     fn save(&mut self) {
@@ -345,11 +347,67 @@ impl eframe::App for MonitorApp {
             self.save();
         }
         let dark_theme = self.settings.theme_mode.is_dark(self.system_theme_dark);
+        if self.applied_titlebar_dark != Some(dark_theme) && set_windows_titlebar_theme(dark_theme)
+        {
+            self.applied_titlebar_dark = Some(dark_theme);
+        }
         let visuals = windows_visuals(dark_theme, self.system_accent_color);
         if ctx.style().visuals != visuals {
             ctx.set_visuals(visuals);
         }
     }
+}
+
+fn set_windows_titlebar_theme(dark: bool) -> bool {
+    use windows::{
+        core::PCWSTR,
+        Win32::{
+            Foundation::COLORREF,
+            Graphics::Dwm::{
+                DwmSetWindowAttribute, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR,
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+            },
+            UI::WindowsAndMessaging::FindWindowW,
+        },
+    };
+
+    let title: Vec<u16> = "M4Dash\0".encode_utf16().collect();
+    let Ok(hwnd) = (unsafe { FindWindowW(PCWSTR::null(), PCWSTR(title.as_ptr())) }) else {
+        return false;
+    };
+    let (caption_rgb, text_rgb) = if dark {
+        ([31, 32, 35], [245, 245, 245])
+    } else {
+        ([240, 240, 240], [20, 20, 20])
+    };
+    let to_colorref =
+        |rgb: [u8; 3]| COLORREF(rgb[0] as u32 | ((rgb[1] as u32) << 8) | ((rgb[2] as u32) << 16));
+    let caption = to_colorref(caption_rgb);
+    let text = to_colorref(text_rgb);
+    let dark_mode = i32::from(dark);
+    unsafe {
+        // Keep the native title bar aligned with the app's explicit theme,
+        // even when the Windows-wide appearance is set to the opposite mode.
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_USE_IMMERSIVE_DARK_MODE,
+            (&dark_mode as *const i32).cast(),
+            std::mem::size_of::<i32>() as u32,
+        );
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_CAPTION_COLOR,
+            (&caption as *const COLORREF).cast(),
+            std::mem::size_of::<COLORREF>() as u32,
+        );
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TEXT_COLOR,
+            (&text as *const COLORREF).cast(),
+            std::mem::size_of::<COLORREF>() as u32,
+        );
+    }
+    true
 }
 
 fn windows_visuals(dark: bool, accent_rgb: [u8; 3]) -> egui::Visuals {

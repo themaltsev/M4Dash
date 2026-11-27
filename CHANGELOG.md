@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.48 — synchronize the native title bar theme
+
+- Apply the selected M4Dash light/dark colors to the Windows title bar and caption text.
+
 ## 0.1.47 — improve settings text contrast
 
 - Use high-contrast Windows-style text colors in both light and dark themes.
