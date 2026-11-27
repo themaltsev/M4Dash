@@ -26,6 +26,8 @@ pub struct MonitorApp {
     tray_exit: tray_icon::menu::MenuId,
     exiting: bool,
     initial_visibility_pending: bool,
+    tray_actions: Arc<std::sync::atomic::AtomicU8>,
+    tray_handlers_registered: bool,
 }
 
 impl MonitorApp {
@@ -68,6 +70,8 @@ impl MonitorApp {
             tray_exit,
             exiting: false,
             initial_visibility_pending: true,
+            tray_actions: Arc::new(std::sync::atomic::AtomicU8::new(0)),
+            tray_handlers_registered: false,
         }
     }
     fn save(&mut self) {
@@ -153,33 +157,57 @@ fn pixel(rgba: &mut [u8], x: usize, y: usize, color: [u8; 4]) {
 
 impl eframe::App for MonitorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        use std::sync::atomic::Ordering;
+        if !self.tray_handlers_registered {
+            self.tray_handlers_registered = true;
+            let actions = self.tray_actions.clone();
+            let open_id = self.tray_open.clone();
+            let exit_id = self.tray_exit.clone();
+            let wake = ctx.clone();
+            tray_icon::menu::MenuEvent::set_event_handler(Some(
+                move |event: tray_icon::menu::MenuEvent| {
+                    let flag = if event.id == open_id {
+                        1
+                    } else if event.id == exit_id {
+                        2
+                    } else {
+                        0
+                    };
+                    if flag != 0 {
+                        actions.fetch_or(flag, Ordering::Release);
+                        wake.request_repaint();
+                    }
+                },
+            ));
+            let actions = self.tray_actions.clone();
+            let wake = ctx.clone();
+            tray_icon::TrayIconEvent::set_event_handler(Some(move |event| {
+                if matches!(
+                    event,
+                    tray_icon::TrayIconEvent::DoubleClick {
+                        button: tray_icon::MouseButton::Left,
+                        ..
+                    }
+                ) {
+                    actions.fetch_or(1, Ordering::Release);
+                    wake.request_repaint();
+                }
+            }));
+        }
         if self.initial_visibility_pending {
             self.initial_visibility_pending = false;
             if self.settings.start_in_tray && self.tray.is_some() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
             }
         }
-        while let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv() {
-            if event.id == self.tray_open {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-            } else if event.id == self.tray_exit {
-                self.exiting = true;
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
-        }
-        while let Ok(event) = tray_icon::TrayIconEvent::receiver().try_recv() {
-            if matches!(
-                event,
-                tray_icon::TrayIconEvent::DoubleClick {
-                    button: tray_icon::MouseButton::Left,
-                    ..
-                }
-            ) {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-            }
+        let actions = self.tray_actions.swap(0, Ordering::AcqRel);
+        if actions & 2 != 0 {
+            self.exiting = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        } else if actions & 1 != 0 {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
         }
         if ctx.input(|input| input.viewport().close_requested())
             && !self.exiting
@@ -202,7 +230,7 @@ impl eframe::App for MonitorApp {
         let s = self.hardware.read().map(|v| v.clone()).unwrap_or_default();
         let x = self.extra.read().map(|v| v.clone()).unwrap_or_default();
         let l = self.llm.read().map(|v| v.clone()).unwrap_or_default();
-        let items = taskbar_items(&self.settings, &s, &x, &l);
+        let items = grouped_items(&self.settings, taskbar_items(&self.settings, &s, &x, &l));
         let order = ordered_keys(&mut self.settings.taskbar_order, &items);
         let visible: Vec<String> = order
             .iter()
@@ -636,6 +664,84 @@ impl MonitorApp {
                 .text("Отступ между колонками")
                 .suffix(" px"),
         );
+        ui.separator();
+        ui.heading("Пользовательские группы");
+        ui.label("В каждой группе выберите верхнюю и нижнюю строку из включённых датчиков.");
+        let mut choices: Vec<(String, String)> = Vec::new();
+        for (enabled, key, label) in [
+            (self.settings.show_network, "network:rx", "Сеть ↓"),
+            (self.settings.show_network, "network:tx", "Сеть ↑"),
+            (self.settings.show_cpu, "cpu", "CPU"),
+            (self.settings.show_ram, "ram", "RAM"),
+            (self.settings.show_gpu, "gpu", "GPU"),
+            (self.settings.show_llm, "llm", "LM Studio"),
+            (
+                self.settings.show_motherboard,
+                "motherboard",
+                "Материнская плата",
+            ),
+        ] {
+            if enabled {
+                choices.push((key.into(), label.into()));
+            }
+        }
+        if self.settings.show_disks {
+            for disk in &s.disks {
+                if self
+                    .settings
+                    .disk_visibility
+                    .get(&disk.id)
+                    .copied()
+                    .unwrap_or(true)
+                {
+                    let id = format!("disk:{}", disk.id);
+                    choices.push((id.clone(), self.name(&id, &disk.name)));
+                }
+            }
+        }
+        let mut delete = None;
+        for (index, group) in self.settings.layout_groups.iter_mut().enumerate() {
+            ui.horizontal(|ui| {
+                ui.label(format!("Группа {}", index + 1));
+                for (slot, value) in [&mut group.first, &mut group.second]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let label = choices
+                        .iter()
+                        .find(|(key, _)| key == value)
+                        .map(|(_, label)| label.as_str())
+                        .unwrap_or(if value.is_empty() {
+                            "Не выбрано"
+                        } else {
+                            "Датчик выключен"
+                        });
+                    egui::ComboBox::from_id_salt(("layout-group", index, slot))
+                        .selected_text(label)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(value, String::new(), "Не выбрано");
+                            for (key, label) in &choices {
+                                ui.selectable_value(value, key.clone(), label);
+                            }
+                        });
+                }
+                if ui.button("Удалить").clicked() {
+                    delete = Some(index);
+                }
+            });
+        }
+        if let Some(index) = delete {
+            self.settings.layout_groups.remove(index);
+        }
+        if ui.button("Добавить группу").clicked() {
+            self.settings
+                .layout_groups
+                .push(crate::config::LayoutGroup {
+                    first: String::new(),
+                    second: String::new(),
+                });
+        }
+        ui.separator();
         let mut items: Vec<(String, String, String)> = Vec::new();
         if self.settings.show_network {
             items.push((
@@ -669,6 +775,13 @@ impl MonitorApp {
                         (id.clone(), self.name(&id, &disk.name), String::new())
                     })
             }));
+        }
+        for (index, _) in self.settings.layout_groups.iter().enumerate() {
+            items.push((
+                format!("group:{index}"),
+                format!("Группа {}", index + 1),
+                String::new(),
+            ));
         }
         if items.is_empty() {
             ui.weak("Нет включённых блоков для панели задач.");
@@ -878,6 +991,89 @@ fn taskbar_items(
         ));
     }
     v
+}
+
+fn grouped_items(
+    settings: &Settings,
+    mut columns: Vec<(String, String, String)>,
+) -> Vec<(String, String, String)> {
+    let mut available = std::collections::BTreeMap::<String, String>::new();
+    for (key, first, second) in &columns {
+        match key.as_str() {
+            "network" => {
+                available.insert("network:rx".into(), first.clone());
+                available.insert("network:tx".into(), second.clone());
+            }
+            "cpu_ram" => {
+                available.insert("cpu".into(), first.clone());
+                available.insert("ram".into(), second.clone());
+            }
+            "gpu_llm" => {
+                available.insert("gpu".into(), first.clone());
+                available.insert("llm".into(), second.clone());
+            }
+            _ => {
+                available.insert(
+                    key.clone(),
+                    [first.as_str(), second.as_str()]
+                        .into_iter()
+                        .filter(|s| !s.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                );
+            }
+        }
+    }
+    let mut used = std::collections::BTreeSet::new();
+    for group in &settings.layout_groups {
+        for key in [&group.first, &group.second] {
+            if available.get(key).is_some_and(|text| !text.is_empty()) {
+                used.insert(key.clone());
+            }
+        }
+    }
+    for (key, first, second) in &mut columns {
+        match key.as_str() {
+            "network" => {
+                if used.contains("network:rx") {
+                    first.clear();
+                }
+                if used.contains("network:tx") {
+                    second.clear();
+                }
+            }
+            "cpu_ram" => {
+                if used.contains("cpu") {
+                    first.clear();
+                }
+                if used.contains("ram") {
+                    second.clear();
+                }
+            }
+            "gpu_llm" => {
+                if used.contains("gpu") {
+                    first.clear();
+                }
+                if used.contains("llm") {
+                    second.clear();
+                }
+            }
+            _ if used.contains(key) => {
+                first.clear();
+                second.clear();
+            }
+            _ => {}
+        }
+    }
+    columns.retain(|(_, first, second)| !first.is_empty() || !second.is_empty());
+    for (index, group) in settings.layout_groups.iter().enumerate() {
+        let first = available.get(&group.first).cloned().unwrap_or_default();
+        let second = available.get(&group.second).cloned().unwrap_or_default();
+        if !first.is_empty() || !second.is_empty() {
+            columns.push((format!("group:{index}"), first, second));
+        }
+    }
+    columns
 }
 
 fn speed_unit_selector(ui: &mut egui::Ui, id: &str, unit: &mut SpeedUnit) {

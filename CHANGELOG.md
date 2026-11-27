@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.18 — user-defined taskbar groups
+
+- Add groups with independent top and bottom row selectors based on enabled sensors; selecting a row moves it from its default column into the group.
+- Save groups in portable settings, retaining earlier configurations when no groups are defined.
+- Wake the UI event loop when a tray menu action arrives, including while the window is hidden.
+
 ## 0.1.17 — tray and empty-row crash fix
 
 - Add startup mode setting and tray menu with Open and Exit; closing the window hides it when the tray is available.

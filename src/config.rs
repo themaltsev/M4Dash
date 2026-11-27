@@ -28,6 +28,12 @@ impl SpeedUnit {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LayoutGroup {
+    pub first: String,
+    pub second: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub schema_version: u32,
@@ -51,6 +57,7 @@ pub struct Settings {
     pub custom_fonts: BTreeMap<String, String>,
     pub custom_names: BTreeMap<String, String>,
     pub taskbar_order: Vec<String>,
+    pub layout_groups: Vec<LayoutGroup>,
     pub column_spacing_px: u16,
     pub font_size: f32,
     pub font_family: String,
@@ -81,6 +88,7 @@ impl Default for Settings {
             custom_fonts: BTreeMap::new(),
             custom_names: BTreeMap::new(),
             taskbar_order: Vec::new(),
+            layout_groups: Vec::new(),
             column_spacing_px: 16,
             font_size: 14.0,
             font_family: "Segoe UI".into(),
