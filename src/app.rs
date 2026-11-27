@@ -887,7 +887,7 @@ fn taskbar_items(
                 .map(|mhz| format!("{:.1} GHz", mhz as f64 / 1000.0))
                 .unwrap_or_else(|| "N/A GHz".into());
             format!(
-                "{} {}: {:.0}/{:.0} GB · RAM BW N/A GB/s",
+                "{} {}: {:.0}/{:.0} GB",
                 name("ram", ram_type),
                 frequency,
                 s.ram_used_bytes as f64 / 1073741824.0,

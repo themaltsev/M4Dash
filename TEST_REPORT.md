@@ -117,3 +117,10 @@
 - The process is running in HOME-PC Portable (PID 39496), desktop shortcut targets the permanent EXE and ICO; deployed EXE SHA-256 is `6bc8fd5906553ab0ac281a10b8a7694ba077ba3601978a35685da16abeeb69d0`. SSH reports `MainWindowHandle=0` even though `start_in_tray=false`, so this remote deployment check does not confirm the visible settings window or taskbar rendering.
 - Investigated RAM bandwidth feasibility. Current LibreHardwareMonitor integration only reads the CPU/motherboard tree plus SMBIOS memory type/speed; its Memory hardware module exposes usage/load, while DIMM telemetry provides SPD timing/capacity/thermal fields rather than live DRAM throughput. RAM bandwidth is therefore rendered as N/A, not misrepresented by a disk or page-write counter.
 - TrafficMonitor was not changed.
+
+## 2026-11-27 — Portable v0.1.24 clipped RAM row cleanup
+
+- Windows x64 release build passed; the RAM taskbar line now contains only type, configured frequency, and used/total capacity, so it fits the existing 25-character group width without the clipped `RAM B…` placeholder.
+- Live RAM bandwidth was not found in the current data providers. AMD uProf's system-analysis support matrix lists Ryzen 5000 as unsupported for uProfPcm; the existing LibreHardwareMonitor memory integration reports capacity/usage and DIMM SPD data, not live DRAM throughput.
+- Deployed to HOME-PC Portable; `settings.json` remains 2914 bytes, shortcut target/icon remain valid, autostart remains disabled, and process PID 24456 is running. Remote SSH still reports `MainWindowHandle=0`, so this verifies process/deployment but not the visible taskbar pixels.
+- TrafficMonitor was not changed.

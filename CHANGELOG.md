@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.24 — remove clipped unavailable RAM bandwidth marker
+
+- Keep the taskbar RAM row to type, frequency, and used/total capacity when no live DRAM bandwidth provider is available; this fits the existing fixed-width column instead of showing a clipped `RAM BW N/A` fragment.
+
+
 ## 0.1.23 — group sensor selection and compact CPU/RAM rows
 
 - Replace the two group row dropdowns with checkbox selection and expose individual motherboard sensors as selectable group items.
