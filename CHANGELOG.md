@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.34 — update controls and refreshed app icon
+
+- Add a localized manual GitHub update check/status block to General, alongside the automatic startup check.
+- Replace the app icon with the supplied monitor/health waveform artwork across Windows, tray, Portable, Linux, and macOS icon assets.
+- Use the official portable NSIS compiler archive in Windows CI instead of Chocolatey.
+
 ## 0.1.33 — manual update controls
 
 - Add a localized Updates block to General with a manual GitHub check button and current check/update status.

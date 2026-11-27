@@ -13,7 +13,9 @@ The application checks GitHub Releases at startup and has a manual **Check for u
 
 - **Sensors:** detected hardware and LM Studio API/CLI configuration.
 - **Layout:** select sensor rows, groups, order, and column spacing for the taskbar overlay.
-- **General:** startup mode (`In a window` or `In tray`), Windows autostart, refresh interval, language, and appearance. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are available. Theme defaults to **System** and can be switched to Light or Dark. Font, text size, and color are also here.
+- **General:** startup mode (`In a window` or `In tray`), Windows autostart, refresh interval, language, appearance, and update controls. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are available. Theme defaults to **System** and can be switched to Light or Dark. Font, text size, and color are also here.
+
+The app icon is the monitor-and-waveform artwork shared by the window, taskbar/tray, and release assets.
 
 In tray startup, the main window stays hidden while taskbar metrics continue refreshing. CPU and motherboard sensors come from LibreHardwareMonitor; network, disks, GPU, and local LM Studio are polled by the app. RAM bandwidth is not shown unless a trustworthy live provider becomes available.
 

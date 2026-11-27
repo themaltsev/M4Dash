@@ -5,7 +5,7 @@ ManifestDPIAware true
 !include "MUI2.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.1.32"
+  !define APP_VERSION "0.1.34"
 !endif
 !define APP_NAME "M4 PC Monitor"
 !define APP_EXE "M4PCMonitor.exe"
