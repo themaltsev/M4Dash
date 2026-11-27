@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.38 — M4Dash release branding and documentation
+
+- Rename Windows Setup and Portable release assets to M4Dash and use M4Dash as the GitHub release title.
+- Keep a legacy Setup filename alongside the renamed installer so v0.1.37 and earlier updaters can still update.
+- Rewrite the repository README around installation, monitoring, taskbar layout, tray mode, and updates.
+
 ## 0.1.37 — rename displayed app to M4Dash
 
 - Use M4Dash in the window, app header, tray, update dialogs, installer, and shortcuts.

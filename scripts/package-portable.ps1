@@ -14,7 +14,7 @@ if (!(Test-Path -LiteralPath $readme)) { throw "Portable readme not found: $read
 foreach ($file in @($sensorScript, $sensorLibrary, $sensorLicense)) { if (!(Test-Path -LiteralPath $file)) { throw "Portable sensor dependency not found: $file" } }
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 $version = (Select-String -Path (Join-Path $root 'Cargo.toml') -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
-$stage = Join-Path $out "M4PCMonitor-Portable-v$version-x64"
+$stage = Join-Path $out "M4Dash-Portable-v$version-x64"
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item -LiteralPath $exe -Destination $stage
 Copy-Item -LiteralPath $icon -Destination $stage
@@ -23,7 +23,7 @@ Copy-Item -LiteralPath $sensorScript -Destination $stage
 Copy-Item -LiteralPath $sensorLibrary -Destination $stage
 Copy-Item -LiteralPath $sensorLicense -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'assets\icons') -Destination (Join-Path $stage 'icons') -Recurse -Force
-$zip = Join-Path $out "M4PCMonitor-Portable-v$version-x64.zip"
+$zip = Join-Path $out "M4Dash-Portable-v$version-x64.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
 Get-FileHash -Algorithm SHA256 $zip

@@ -17,8 +17,11 @@ try {
   & $makensisPath /INPUTCHARSET UTF8 /NOCD "/DAPP_VERSION=$version" 'installer\M4PCMonitor.nsi'
   if ($LASTEXITCODE -ne 0) { throw "makensis failed with exit code $LASTEXITCODE" }
 } finally { Pop-Location }
-$setup = Join-Path $root "artifacts\M4-PC-Monitor-Setup-$version-x64.exe"
+$setup = Join-Path $root "artifacts\M4Dash-Setup-$version-x64.exe"
 $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
 Set-Content -LiteralPath "$setup.sha256" -Value "$hash  $(Split-Path -Leaf $setup)" -Encoding ascii
+$legacySetup = Join-Path $root "artifacts\M4-PC-Monitor-Setup-$version-x64.exe"
+Copy-Item -LiteralPath $setup -Destination $legacySetup -Force
+Set-Content -LiteralPath "$legacySetup.sha256" -Value "$hash  $(Split-Path -Leaf $legacySetup)" -Encoding ascii
 Get-Item -LiteralPath $setup | Select-Object FullName, Length
 Get-FileHash -LiteralPath $setup -Algorithm SHA256

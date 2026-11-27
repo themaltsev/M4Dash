@@ -1,6 +1,6 @@
 # M4Dash Portable — Windows x64
 
-1. Windows: можно использовать Portable ZIP или установщик `M4-PC-Monitor-Setup-<version>-x64.exe`.
+1. Windows: можно использовать Portable ZIP `M4Dash-Portable-v<version>-x64.zip` или установщик `M4Dash-Setup-<version>-x64.exe`.
 2. Для Portable распакуйте все файлы архива в доступную для записи папку (EXE, ICO, `hardware-sensors.ps1`, `LibreHardwareMonitorLib.dll` и лицензию).
 3. Запустите `M4PCMonitor.exe`.
 4. Первый запуск создаёт `settings.json` рядом с EXE. Настройки сохраняются при обновлении как Portable, так и через Setup.

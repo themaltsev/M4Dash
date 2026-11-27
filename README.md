@@ -1,27 +1,47 @@
-# M4Dash — Windows x64
+# M4Dash
 
-Hardware and local LM Studio monitor for Windows 11 x64. Current installers and Portable archives are published on [GitHub Releases](https://github.com/themaltsev/M4Dash/releases/latest).
+**Live PC hardware and local LLM monitoring for Windows 11 x64.** M4Dash puts configurable sensor metrics in the taskbar and keeps them updating while the main window is hidden in the system tray.
+
+[Download the latest Windows release](https://github.com/themaltsev/M4Dash/releases/latest) · [Report a problem](https://github.com/themaltsev/M4Dash/issues)
+
+> M4Dash currently supports Windows only. macOS and Linux builds are not available yet.
 
 ## Install
 
-- **Setup:** run `M4-PC-Monitor-Setup-<version>-x64.exe`. It installs per-user, creates M4Dash Start Menu and desktop shortcuts, and preserves the existing install directory and settings when updating in place.
-- **Portable:** extract the full `M4PCMonitor-Portable-<version>-x64.zip` into a writable folder and run `M4PCMonitor.exe`. Keep `settings.json` beside the executable when replacing files.
+Choose either package from the [latest release](https://github.com/themaltsev/M4Dash/releases/latest):
 
-The application checks GitHub Releases at startup and has a manual **Check for updates** button in General. If a newer version has a Windows Setup asset, it asks before downloading; after confirmation it validates the executable (and the SHA-256 sidecar when present), exits, installs into the current application folder, and restarts. Settings are not replaced by Setup updates. Windows may request elevation when launching because LibreHardwareMonitor needs it for some sensors.
+- **Windows Setup** (`M4Dash-Setup-<version>-x64.exe`) installs the app for the current user and creates M4Dash shortcuts in Start Menu and on the Desktop. The existing installation folder is retained so in-place upgrades keep working.
+- **Portable** (`M4Dash-Portable-v<version>-x64.zip`) can be extracted to any writable folder. Run `M4PCMonitor.exe` and keep `settings.json` beside it when replacing or moving the app files.
 
-## Settings
+The app stores its settings next to the executable. Portable users should choose a folder where their account can write files.
 
-- **Sensors:** detected hardware and LM Studio API/CLI configuration.
-- **Layout:** select sensor rows, groups, order, and column spacing for the taskbar overlay.
-- **General:** startup mode (`In a window` or `In tray`), Windows autostart, refresh interval, language, appearance, and update controls. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are available. Theme defaults to **System** and can be switched to Light or Dark. The app uses a larger Windows-style Segoe UI font; font, text size, and color controls apply only to the taskbar overlay.
+## What it monitors
 
-The app icon is the monitor-and-waveform artwork shared by the window, taskbar/tray, and release assets.
+- CPU, memory, disks, network interfaces, GPU, and available motherboard sensors.
+- Optional local LM Studio status through its API and command-line tool.
+- User-defined two-row taskbar groups, sensor visibility, ordering, and spacing.
 
-In tray startup, the main window stays hidden while taskbar metrics continue refreshing. CPU and motherboard sensors come from LibreHardwareMonitor; network, disks, GPU, and local LM Studio are polled by the app. RAM bandwidth is not shown unless a trustworthy live provider becomes available.
+CPU and motherboard readings are provided by LibreHardwareMonitor. Other device metrics are collected by M4Dash. RAM bandwidth is omitted when no reliable live provider is available.
 
-## Build
+## Configure
 
-The release workflow builds the Windows MSVC binary, Portable ZIP, NSIS Setup, and SHA-256 sidecar on Windows. To build the app locally with the GNU target:
+Open **M4Dash** from the tray menu to edit settings:
+
+- **Sensors** — enable sensors and configure the local LM Studio API address and `lms.exe` path.
+- **Layout** — choose which values appear in each taskbar group, then arrange the groups and spacing.
+- **General** — choose startup in a window or directly in the tray, Windows startup, refresh interval, language, theme, and update controls.
+
+The interface uses a larger Windows-style Segoe UI font. Font, text size, and color settings apply only to taskbar metrics. The theme can follow Windows (**System**) or be set to Light or Dark. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are also available.
+
+When **In tray** is selected, the main interface does not appear at startup. Taskbar metrics continue refreshing in the background; use the tray icon to open the window or exit.
+
+## Updates
+
+M4Dash checks GitHub Releases at startup. You can also use **Check for updates** in General. When a newer Windows Setup is available, M4Dash asks before downloading or installing it. The installer is verified using its SHA-256 sidecar when available, updates into the current app folder, preserves `settings.json`, and restarts the app.
+
+## Build from source
+
+The release workflow builds the Windows MSVC app, M4Dash Setup installer, Portable ZIP, and SHA-256 checksums on GitHub Actions. For compatibility, releases also include an old-name Setup alias so earlier M4Dash versions can update. A local build requires Rust and NSIS 3:
 
 ```powershell
 cargo build --release --target x86_64-pc-windows-gnu
@@ -29,4 +49,4 @@ cargo build --release --target x86_64-pc-windows-gnu
 ./scripts/build-windows-setup.ps1 -TargetTriple x86_64-pc-windows-gnu
 ```
 
-The setup script requires NSIS 3. macOS and Linux currently have no native app build; the icon artwork in the repository is not a functional cross-platform port.
+The setup script calls the Portable packager and requires `makensis` to be available on `PATH` (or in the standard NSIS installation directory).

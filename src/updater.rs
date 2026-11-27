@@ -110,7 +110,7 @@ pub fn update_ready() -> bool {
 
 async fn check_and_offer() -> anyhow::Result<()> {
     let client = reqwest::Client::builder()
-        .user_agent(concat!("M4-PC-Monitor/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("M4Dash/", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(15))
         .build()?;
     let release: Release = client
@@ -129,12 +129,19 @@ async fn check_and_offer() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let installer_name = format!("M4-PC-Monitor-Setup-{latest}-x64.exe");
-    let installer = release
-        .assets
-        .iter()
-        .find(|asset| asset.name == installer_name)
-        .ok_or_else(|| anyhow::anyhow!("latest release has no Windows setup asset"))?;
+    let (installer_name, installer) = [
+        format!("M4Dash-Setup-{latest}-x64.exe"),
+        format!("M4-PC-Monitor-Setup-{latest}-x64.exe"),
+    ]
+    .into_iter()
+    .find_map(|candidate| {
+        release
+            .assets
+            .iter()
+            .find(|asset| asset.name == candidate)
+            .map(|asset| (candidate, asset))
+    })
+    .ok_or_else(|| anyhow::anyhow!("latest release has no Windows setup asset"))?;
     set_status(UpdateStatus::Available(latest.to_owned()));
     let language = crate::config::Settings::load()
         .map(|settings| settings.language)
@@ -145,10 +152,7 @@ async fn check_and_offer() -> anyhow::Result<()> {
     set_status(UpdateStatus::Downloading(latest.to_owned()));
 
     let temp_dir = std::env::temp_dir();
-    let setup_path = temp_dir.join(format!(
-        "M4PCMonitor-Setup-{latest}-{}.exe",
-        std::process::id()
-    ));
+    let setup_path = temp_dir.join(format!("M4Dash-Setup-{latest}-{}.exe", std::process::id()));
     let bytes = client
         .get(&installer.browser_download_url)
         .timeout(Duration::from_secs(300))
