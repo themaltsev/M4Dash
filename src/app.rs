@@ -175,6 +175,9 @@ impl eframe::App for MonitorApp {
                     };
                     if flag != 0 {
                         actions.fetch_or(flag, Ordering::Release);
+                        // A hidden winit window may not receive redraws. Make it
+                        // visible through Win32 first so egui can process the action.
+                        wake_native_window();
                         wake.request_repaint();
                     }
                 },
@@ -190,6 +193,7 @@ impl eframe::App for MonitorApp {
                     }
                 ) {
                     actions.fetch_or(1, Ordering::Release);
+                    wake_native_window();
                     wake.request_repaint();
                 }
             }));
@@ -349,6 +353,22 @@ impl eframe::App for MonitorApp {
                 });
             });
         });
+    }
+}
+
+fn wake_native_window() {
+    use windows::{
+        core::PCWSTR,
+        Win32::UI::WindowsAndMessaging::{
+            FindWindowW, SetForegroundWindow, ShowWindow, SW_RESTORE,
+        },
+    };
+    let title: Vec<u16> = "M4 PC Monitor\0".encode_utf16().collect();
+    if let Ok(hwnd) = unsafe { FindWindowW(PCWSTR::null(), PCWSTR(title.as_ptr())) } {
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+            let _ = SetForegroundWindow(hwnd);
+        }
     }
 }
 

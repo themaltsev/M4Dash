@@ -32,6 +32,37 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    // LibreHardwareMonitor requires an elevated process for Ryzen and board sensors.
+    // The initial process releases its singleton before asking Windows for elevation.
+    if !unsafe { windows::Win32::UI::Shell::IsUserAnAdmin() }.as_bool() {
+        use std::os::windows::ffi::OsStrExt;
+        use windows::{
+            core::PCWSTR,
+            Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL},
+        };
+        let exe: Vec<u16> = std::env::current_exe()?
+            .as_os_str()
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+        let operation: Vec<u16> = "runas\0".encode_utf16().collect();
+        let _ = unsafe { windows::Win32::Foundation::CloseHandle(instance_mutex) };
+        let result = unsafe {
+            ShellExecuteW(
+                None,
+                PCWSTR(operation.as_ptr()),
+                PCWSTR(exe.as_ptr()),
+                PCWSTR::null(),
+                PCWSTR::null(),
+                SW_SHOWNORMAL,
+            )
+        };
+        if result.0 as isize > 32 {
+            return Ok(());
+        }
+        anyhow::bail!("Windows elevation was not granted; CPU temperature sensors require administrator access");
+    }
+
     let settings = config::Settings::load()?;
     let snapshot = Arc::new(RwLock::new(hardware::Snapshot::default()));
     let extra = Arc::new(RwLock::new(hardware::ExtraSnapshot::default()));

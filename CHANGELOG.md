@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.19 — sensor permissions and tray wake
+
+- Request Windows elevation on normal launch so LibreHardwareMonitor can access supported CPU temperature sensors.
+- Restore the native window when a tray action arrives, allowing the event loop to process Open/Exit while the window is hidden.
+
 ## 0.1.18 — user-defined taskbar groups
 
 - Add groups with independent top and bottom row selectors based on enabled sensors; selecting a row moves it from its default column into the group.
