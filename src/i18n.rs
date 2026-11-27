@@ -71,6 +71,7 @@ const TEXT: &[(&str, [&str; 8])] = &[
     ("Шрифт", ["Шрифт", "Font", "Fonte", "فونت", "Fuente", "Police", "Carattere", "字体"]),
     ("Добавить шрифт…", ["Добавить шрифт…", "Add font…", "Adicionar fonte…", "افزودن فونت…", "Añadir fuente…", "Ajouter une police…", "Aggiungi font…", "添加字体…"]),
     ("Размер текста", ["Размер текста", "Text size", "Tamanho do texto", "اندازهٔ متن", "Tamaño del texto", "Taille du texte", "Dimensione testo", "文字大小"]),
+    ("Шрифт и размер относятся только к панели задач", ["Шрифт и размер относятся только к панели задач", "Font and size apply only to the taskbar", "A fonte e o tamanho aplicam-se apenas à barra de tarefas", "فونت و اندازه فقط برای نوار وظیفه هستند", "La fuente y el tamaño solo se aplican a la barra de tareas", "La police et la taille s’appliquent uniquement à la barre des tâches", "Il carattere e la dimensione si applicano solo alla barra delle applicazioni", "字体和大小仅应用于任务栏"]),
     ("Не выбрано", ["Не выбрано", "None selected", "Nenhum selecionado", "هیچ‌کدام", "Ninguno seleccionado", "Aucun sélectionné", "Nessuna selezione", "未选择"]),
     ("Загрузка", ["Загрузка", "Loading", "Carregando", "در حال بارگذاری", "Cargando", "Chargement", "Caricamento", "加载中"]),
     ("Подготовка", ["Подготовка", "Preparing", "Preparando", "در حال آماده‌سازی", "Preparando", "Préparation", "Preparazione", "准备中"]),

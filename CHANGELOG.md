@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.35 — separate app and taskbar typography
+
+- Use a larger Windows-style Segoe UI font in the settings interface, independent of taskbar typography controls.
+- Keep the selected font and text size exclusively for taskbar metrics, and label the controls accordingly.
+
 ## 0.1.34 — update controls and refreshed app icon
 
 - Add a localized manual GitHub update check/status block to General, alongside the automatic startup check.

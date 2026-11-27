@@ -13,7 +13,7 @@ The application checks GitHub Releases at startup and has a manual **Check for u
 
 - **Sensors:** detected hardware and LM Studio API/CLI configuration.
 - **Layout:** select sensor rows, groups, order, and column spacing for the taskbar overlay.
-- **General:** startup mode (`In a window` or `In tray`), Windows autostart, refresh interval, language, appearance, and update controls. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are available. Theme defaults to **System** and can be switched to Light or Dark. Font, text size, and color are also here.
+- **General:** startup mode (`In a window` or `In tray`), Windows autostart, refresh interval, language, appearance, and update controls. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are available. Theme defaults to **System** and can be switched to Light or Dark. The app uses a larger Windows-style Segoe UI font; font, text size, and color controls apply only to the taskbar overlay.
 
 The app icon is the monitor-and-waveform artwork shared by the window, taskbar/tray, and release assets.
 

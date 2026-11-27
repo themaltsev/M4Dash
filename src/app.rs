@@ -28,7 +28,6 @@ pub struct MonitorApp {
     tab: usize,
     status: String,
     launch_at_login: bool,
-    active_font_family: String,
     active_language: Option<crate::config::Language>,
     tray: Option<tray_icon::TrayIcon>,
     tray_open: tray_icon::menu::MenuId,
@@ -92,7 +91,6 @@ impl MonitorApp {
             tab: 0,
             status: String::new(),
             launch_at_login: crate::startup::is_enabled(),
-            active_font_family: String::new(),
             active_language: None,
             tray,
             tray_open,
@@ -255,22 +253,8 @@ impl eframe::App for MonitorApp {
             self.system_theme_dark = crate::config::system_prefers_dark_theme();
             self.system_theme_checked_at = std::time::Instant::now();
         }
-        if self.active_font_family != self.settings.font_family
-            || self.active_language != Some(language)
-        {
-            let custom_path = self
-                .settings
-                .custom_fonts
-                .get(&self.settings.font_family)
-                .map(|file| portable_font_dir().join(file));
-            apply_selected_font(
-                ctx,
-                &self.settings.font_family,
-                custom_path.as_deref(),
-                language,
-            );
-            self.active_font_family
-                .clone_from(&self.settings.font_family);
+        if self.active_language != Some(language) {
+            apply_windows_ui_style(ctx, language);
             self.active_language = Some(language);
         }
         let s = self.hardware.read().map(|v| v.clone()).unwrap_or_default();
@@ -382,40 +366,10 @@ fn wake_native_window() {
     }
 }
 
-fn apply_selected_font(
-    ctx: &egui::Context,
-    family: &str,
-    custom_path: Option<&Path>,
-    language: crate::config::Language,
-) {
-    if let Some(path) = custom_path {
-        match std::fs::read(path) {
-            Ok(bytes) => {
-                let mut fonts = egui::FontDefinitions::default();
-                let key = format!("m4-portable-font-{family}");
-                fonts.font_data.insert(
-                    key.clone(),
-                    std::sync::Arc::new(egui::FontData::from_owned(bytes)),
-                );
-                fonts
-                    .families
-                    .entry(egui::FontFamily::Proportional)
-                    .or_default()
-                    .insert(0, key);
-                add_language_font_fallback(&mut fonts, language);
-                ctx.set_fonts(fonts);
-                return;
-            }
-            Err(error) => tracing::warn!("Could not load custom font {}: {error}", path.display()),
-        }
-    }
-    let file = match family {
-        "Arial" => "arial.ttf",
-        "Tahoma" => "tahoma.ttf",
-        "Consolas" => "consola.ttf",
-        "Cascadia Mono" => "CascadiaMono.ttf",
-        _ => "segoeui.ttf",
-    };
+fn apply_windows_ui_style(ctx: &egui::Context, language: crate::config::Language) {
+    // The selected font and point size belong to the taskbar overlay. Keep the
+    // settings window independent and use the familiar Windows UI typeface.
+    let file = "segoeui.ttf";
     let path = std::env::var_os("WINDIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::PathBuf::from(r"C:\Windows"))
@@ -424,21 +378,36 @@ fn apply_selected_font(
     let mut fonts = egui::FontDefinitions::default();
     match std::fs::read(&path) {
         Ok(bytes) => {
-            let key = format!("m4-system-font-{family}");
+            let key = "m4-windows-ui-font";
             fonts.font_data.insert(
-                key.clone(),
+                key.to_owned(),
                 std::sync::Arc::new(egui::FontData::from_owned(bytes)),
             );
             fonts
                 .families
                 .entry(egui::FontFamily::Proportional)
                 .or_default()
-                .insert(0, key);
+                .insert(0, key.to_owned());
         }
         Err(error) => tracing::warn!("Could not load font {}: {error}", path.display()),
     }
     add_language_font_fallback(&mut fonts, language);
     ctx.set_fonts(fonts);
+
+    let mut style = (*ctx.style()).clone();
+    for (text_style, size) in [
+        (egui::TextStyle::Body, 16.0),
+        (egui::TextStyle::Button, 16.0),
+        (egui::TextStyle::Small, 13.0),
+        (egui::TextStyle::Heading, 21.0),
+        (egui::TextStyle::Monospace, 16.0),
+        (egui::TextStyle::Name("Heading".into()), 25.0),
+    ] {
+        style
+            .text_styles
+            .insert(text_style, egui::FontId::proportional(size));
+    }
+    ctx.set_style(style);
 }
 
 fn add_language_font_fallback(
@@ -995,6 +964,10 @@ impl MonitorApp {
         ));
         ui.separator();
         ui.heading(crate::i18n::tr(language, "Оформление"));
+        ui.label(crate::i18n::tr(
+            language,
+            "Шрифт и размер относятся только к панели задач",
+        ));
         egui::ComboBox::from_label(crate::i18n::tr(language, "Шрифт"))
             .selected_text(&self.settings.font_family)
             .show_ui(ui, |ui| {
@@ -1014,7 +987,6 @@ impl MonitorApp {
                     Ok((family, filename)) => {
                         self.settings.custom_fonts.insert(family.clone(), filename);
                         self.settings.font_family = family.clone();
-                        self.active_font_family.clear();
                         self.status = crate::i18n::tr_format(
                             language,
                             "Шрифт {} добавлен в Portable и выбран",
