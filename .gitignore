@@ -1,0 +1,11 @@
+/target/
+/build/
+/artifacts/
+/.tooling/
+*.log
+*.tmp
+*.exe
+*.zip
+*.ico
+!assets/M4PCMonitor.ico
+*.png
