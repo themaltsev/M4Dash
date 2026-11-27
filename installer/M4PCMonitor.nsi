@@ -6,7 +6,7 @@ ManifestDPIAware true
 !include "LogicLib.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.1.42"
+  !define APP_VERSION "0.1.44"
 !endif
 !define APP_NAME "M4Dash"
 !define APP_EXE "M4Dash.exe"
@@ -68,8 +68,10 @@ Section "M4Dash" SEC_MAIN
   ${If} ${FileExists} "$LegacyInstallDir\fonts\*.*"
     CopyFiles /SILENT "$LegacyInstallDir\fonts\*.*" "$INSTDIR\fonts"
   ${EndIf}
-  ${If} ${FileExists} "$PreviousInstallDir\fonts\*.*"
-    CopyFiles /SILENT "$PreviousInstallDir\fonts\*.*" "$INSTDIR\fonts"
+  ${If} $PreviousInstallDir != $INSTDIR
+    ${If} ${FileExists} "$PreviousInstallDir\fonts\*.*"
+      CopyFiles /SILENT "$PreviousInstallDir\fonts\*.*" "$INSTDIR\fonts"
+    ${EndIf}
   ${EndIf}
   SetOutPath "$INSTDIR"
   File "${APP_STAGE}\M4Dash.exe"

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.44 — safe in-place font preservation
+
+- Skip copying custom fonts when Setup is upgrading in the same install directory.
+
 ## 0.1.43 — show RAM usage percentage
 
 - Append the used RAM percentage to the taskbar item and sensor settings preview.
