@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.42 — optional desktop shortcut
+
+- Add a localized, initially checked Setup checkbox to create the desktop shortcut.
+- Remove an existing M4Dash desktop shortcut when the checkbox is unchecked.
+
 ## 0.1.41 — brand Setup and uninstaller icons
 
 - Use the M4Dash monitor logo as the Windows Setup executable, installer-window, and uninstaller icon.
