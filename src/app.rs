@@ -378,10 +378,16 @@ fn windows_visuals(dark: bool, accent_rgb: [u8; 3]) -> egui::Visuals {
             egui::Color32::from_rgb(130, 132, 136),
         )
     };
+    let foreground = if dark {
+        egui::Color32::from_rgb(245, 245, 245)
+    } else {
+        egui::Color32::from_rgb(20, 20, 20)
+    };
 
     visuals.window_fill = background;
     visuals.panel_fill = background;
     visuals.window_stroke = egui::Stroke::new(1.0_f32, border);
+    visuals.override_text_color = Some(foreground);
     visuals.extreme_bg_color = control;
     visuals.code_bg_color = control;
     visuals.faint_bg_color = if dark {
@@ -401,15 +407,19 @@ fn windows_visuals(dark: bool, accent_rgb: [u8; 3]) -> egui::Visuals {
     );
     visuals.widgets.noninteractive.bg_fill = background;
     visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, border);
+    visuals.widgets.noninteractive.fg_stroke.color = foreground;
     visuals.widgets.inactive.bg_fill = control;
     visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, border);
+    visuals.widgets.inactive.fg_stroke.color = foreground;
     visuals.widgets.hovered.bg_fill = accent_soft;
     visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, accent);
+    visuals.widgets.hovered.fg_stroke.color = foreground;
     visuals.widgets.active.bg_fill = accent_soft;
     visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, accent);
-    visuals.widgets.active.fg_stroke.color = accent;
+    visuals.widgets.active.fg_stroke.color = foreground;
     visuals.widgets.open.bg_fill = control;
     visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0_f32, accent);
+    visuals.widgets.open.fg_stroke.color = foreground;
     visuals
 }
 

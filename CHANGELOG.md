@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.47 — improve settings text contrast
+
+- Use high-contrast Windows-style text colors in both light and dark themes.
+- Keep the settings UI on the Windows system font, separate from taskbar typography.
+
 ## 0.1.46 — Windows-style light/dark colors and system accent
 
 - Match the settings palette to Windows light and dark appearance.
