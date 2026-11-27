@@ -14,7 +14,7 @@ if (!$makensisPath) {
 if (!$makensisPath) { throw 'NSIS 3 is required. Install it from https://nsis.sourceforge.io/Download and rerun this script.' }
 Push-Location $root
 try {
-  & $makensisPath "/DAPP_VERSION=$version" 'installer\M4PCMonitor.nsi'
+  & $makensisPath /INPUTCHARSET UTF8 /NOCD "/DAPP_VERSION=$version" 'installer\M4PCMonitor.nsi'
   if ($LASTEXITCODE -ne 0) { throw "makensis failed with exit code $LASTEXITCODE" }
 } finally { Pop-Location }
 $setup = Join-Path $root "artifacts\M4-PC-Monitor-Setup-$version-x64.exe"

@@ -1,5 +1,4 @@
 Unicode true
-!pragma codepage 65001
 RequestExecutionLevel user
 ManifestDPIAware true
 
