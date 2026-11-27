@@ -21,7 +21,7 @@ use windows::{
 };
 
 static UPDATE_READY: AtomicBool = AtomicBool::new(false);
-const REPOSITORY: &str = "themaltsev/m4-pc-monitor";
+const REPOSITORY: &str = "themaltsev/M4Dash";
 
 #[derive(Clone, Debug)]
 pub enum UpdateStatus {

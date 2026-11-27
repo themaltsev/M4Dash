@@ -1,6 +1,6 @@
 # M4 PC Monitor — Windows x64
 
-Hardware and local LM Studio monitor for Windows 11 x64. Current installers and Portable archives are published on [GitHub Releases](https://github.com/themaltsev/m4-pc-monitor/releases/latest).
+Hardware and local LM Studio monitor for Windows 11 x64. Current installers and Portable archives are published on [GitHub Releases](https://github.com/themaltsev/M4Dash/releases/latest).
 
 ## Install
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.36 — repository rename
+
+- Point the automatic GitHub update checker and release documentation to the renamed M4Dash repository.
+
 ## 0.1.35 — separate app and taskbar typography
 
 - Use a larger Windows-style Segoe UI font in the settings interface, independent of taskbar typography controls.
