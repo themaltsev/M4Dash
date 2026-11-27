@@ -28,7 +28,7 @@ jobs:
         run: ./scripts/build-windows-setup.ps1 -Configuration release -TargetTriple x86_64-pc-windows-msvc
       - uses: actions/upload-artifact@v4
         with:
-          name: M4-PC-Monitor-Windows-${{ github.ref_name }}
+          name: M4-PC-Monitor-Windows
           path: |
             artifacts/M4PCMonitor-Portable-*.zip
             artifacts/M4-PC-Monitor-Setup-*.exe
