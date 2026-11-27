@@ -37,7 +37,7 @@ Var LegacyInstallDir
 Function .onInit
   StrCpy $PreviousInstallDir $INSTDIR
   StrCpy $LegacyInstallDir "$LOCALAPPDATA\Programs\M4 PC Monitor"
-  StrCmp /I $INSTDIR "$LegacyInstallDir" 0 init_done
+  StrCmp $INSTDIR "$LegacyInstallDir" 0 init_done
   StrCpy $INSTDIR "$LOCALAPPDATA\Programs\M4Dash"
 init_done:
 FunctionEnd

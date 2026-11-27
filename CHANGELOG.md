@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.39 — rename executable and install folder
+## 0.1.40 — rename executable and install folder
 
 - Build and install the app as `M4Dash.exe` under `%LOCALAPPDATA%\Programs\M4Dash`.
 - Migrate settings, custom fonts, and autostart target from the previous M4 PC Monitor install.
