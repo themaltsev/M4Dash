@@ -22,6 +22,7 @@ Copy-Item -LiteralPath $readme -Destination $stage
 Copy-Item -LiteralPath $sensorScript -Destination $stage
 Copy-Item -LiteralPath $sensorLibrary -Destination $stage
 Copy-Item -LiteralPath $sensorLicense -Destination $stage
+Copy-Item -LiteralPath (Join-Path $root 'assets\icons') -Destination (Join-Path $stage 'icons') -Recurse -Force
 $zip = Join-Path $out "M4PCMonitor-Portable-v$version-x64.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip

@@ -99,3 +99,11 @@
 - The deployed app process is active in session 1 and the desktop shortcut resolves to the correct executable/icon, but its `MainWindowHandle` remains 0 when launched by remote Task Scheduler. Therefore the Sensors-tab live value and the new ordering controls could not be directly clicked/confirmed in this session.
 - Desktop capture contains existing TrafficMonitor taskbar metrics, so it is not sufficient to distinguish/confirm M4's overlay. Do not claim M4 taskbar rendering is proven by that capture.
 - Autostart remains disabled. NSIS and TrafficMonitor remain untouched. Portable v0.1.3 is installed and its process left running for owner testing.
+
+## 2026-11-27 — Portable v0.1.22 brand icon pack
+
+- Generated a Windows multi-size ICO, PNG-backed macOS ICNS, Linux hicolor PNG sizes plus scalable SVG, and an embedded 64×64 RGBA variant from the user-supplied SVG. The Rust app window/tray and Portable shortcut now share the branded artwork.
+- `cargo build --release --target x86_64-pc-windows-gnu` passed. EXE SHA-256: `5dd45c46ebc485880d120461e837815ce7aa0153ca13f2e29a42204c692dadb4`.
+- Deployed to `C:\Users\user\AppData\Local\M4 PC Monitor Portable`; verified EXE and ICO exist, `settings.json` is preserved, and process PID 29800 is running.
+- Verified shortcut at `C:\Users\user\Desktop\M4 PC Monitor.lnk`, target `...\M4PCMonitor.exe`, icon `...\M4PCMonitor.ico,0`; HKCU Run autostart remains disabled.
+- This deployment check confirms packaging/paths/process only; no new sensor or taskbar-rendering claim is made here. TrafficMonitor was not modified.

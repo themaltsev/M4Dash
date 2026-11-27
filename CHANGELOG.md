@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.22 — cross-platform icon pack
+
+- Add the supplied SVG as the canonical icon source, with multi-resolution Windows ICO, macOS ICNS, Linux hicolor PNG/SVG assets, and an embedded app/tray icon.
+- Use the branded icon in the application window and Portable desktop shortcut.
+
+
 ## 0.1.21 — fixed group widths
 
 - Add an adjustable fixed character-based width for each group; pixel widths scale with the selected font and size rather than live metrics.

@@ -127,39 +127,11 @@ impl Drop for MonitorApp {
 }
 
 pub fn icon_data() -> egui::IconData {
-    const N: usize = 32;
-    let mut rgba = vec![0; N * N * 4];
-    for p in rgba.chunks_exact_mut(4) {
-        p.copy_from_slice(&[24, 29, 40, 255]);
-    }
-    for y in 5..24 {
-        for x in 4..28 {
-            if x == 4 || x == 27 || y == 5 || y == 23 {
-                pixel(&mut rgba, x, y, [190, 199, 215, 255]);
-            }
-        }
-    }
-    for (x, y) in [(8, 17), (11, 14), (14, 16), (17, 11), (20, 13), (23, 9)] {
-        pixel(&mut rgba, x, y, [239, 68, 68, 255]);
-        if y + 1 < 23 {
-            pixel(&mut rgba, x, y + 1, [239, 68, 68, 255]);
-        }
-    }
-    for x in 14..19 {
-        pixel(&mut rgba, x, 25, [190, 199, 215, 255]);
-    }
-    for x in 11..22 {
-        pixel(&mut rgba, x, 27, [190, 199, 215, 255]);
-    }
     egui::IconData {
-        rgba,
-        width: N as u32,
-        height: N as u32,
+        rgba: include_bytes!("../assets/icons/app-64.rgba").to_vec(),
+        width: 64,
+        height: 64,
     }
-}
-fn pixel(rgba: &mut [u8], x: usize, y: usize, color: [u8; 4]) {
-    let o = (y * 32 + x) * 4;
-    rgba[o..o + 4].copy_from_slice(&color);
 }
 
 impl eframe::App for MonitorApp {
