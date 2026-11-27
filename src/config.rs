@@ -30,8 +30,8 @@ impl SpeedUnit {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Language {
-    #[default]
     Russian,
+    #[default]
     English,
     PortugueseBrazil,
     Persian,

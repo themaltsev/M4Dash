@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.29 — default to English
+
+- Set English as the default interface language, including when older settings files do not yet contain a language choice.
+
+
 ## 0.1.28 — add multilingual interface
 
 - Add persistent language selection in General: Russian, English, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese.
