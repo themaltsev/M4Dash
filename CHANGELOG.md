@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.20 — groups-only taskbar layout
+
+- Display only user-configured groups, with network RX/TX, CPU/RAM and GPU/LLM as defaults for settings without group configuration.
+- Keep existing groups and remove ungrouped entries from layout ordering.
+
 ## 0.1.19 — sensor permissions and tray wake
 
 - Request Windows elevation on normal launch so LibreHardwareMonitor can access supported CPU temperature sensors.

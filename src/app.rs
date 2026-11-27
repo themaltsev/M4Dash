@@ -242,6 +242,7 @@ impl eframe::App for MonitorApp {
                 items
                     .iter()
                     .find(|(id, _, _)| id == k)
+                    .filter(|(_, a, b)| !a.is_empty() || !b.is_empty())
                     .map(|(_, a, b)| format!("{a}\n{b}"))
             })
             .collect();
@@ -752,6 +753,7 @@ impl MonitorApp {
         }
         if let Some(index) = delete {
             self.settings.layout_groups.remove(index);
+            self.settings.taskbar_order.clear();
         }
         if ui.button("Добавить группу").clicked() {
             self.settings
@@ -763,39 +765,6 @@ impl MonitorApp {
         }
         ui.separator();
         let mut items: Vec<(String, String, String)> = Vec::new();
-        if self.settings.show_network {
-            items.push((
-                "network".into(),
-                self.name("network", "Сеть"),
-                String::new(),
-            ));
-        }
-        if self.settings.show_cpu || self.settings.show_ram {
-            items.push(("cpu_ram".into(), "CPU + RAM".into(), String::new()));
-        }
-        if self.settings.show_gpu || self.settings.show_llm {
-            items.push(("gpu_llm".into(), "GPU + LLM".into(), String::new()));
-        }
-        if self.settings.show_motherboard {
-            items.push((
-                "motherboard".into(),
-                self.name("motherboard", "Материнская плата"),
-                String::new(),
-            ));
-        }
-        if self.settings.show_disks {
-            items.extend(s.disks.iter().filter_map(|disk| {
-                self.settings
-                    .disk_visibility
-                    .get(&disk.id)
-                    .copied()
-                    .unwrap_or(true)
-                    .then(|| {
-                        let id = format!("disk:{}", disk.id);
-                        (id.clone(), self.name(&id, &disk.name), String::new())
-                    })
-            }));
-        }
         for (index, _) in self.settings.layout_groups.iter().enumerate() {
             items.push((
                 format!("group:{index}"),
@@ -1015,7 +984,7 @@ fn taskbar_items(
 
 fn grouped_items(
     settings: &Settings,
-    mut columns: Vec<(String, String, String)>,
+    columns: Vec<(String, String, String)>,
 ) -> Vec<(String, String, String)> {
     let mut available = std::collections::BTreeMap::<String, String>::new();
     for (key, first, second) in &columns {
@@ -1044,54 +1013,11 @@ fn grouped_items(
             }
         }
     }
-    let mut used = std::collections::BTreeSet::new();
-    for group in &settings.layout_groups {
-        for key in [&group.first, &group.second] {
-            if available.get(key).is_some_and(|text| !text.is_empty()) {
-                used.insert(key.clone());
-            }
-        }
-    }
-    for (key, first, second) in &mut columns {
-        match key.as_str() {
-            "network" => {
-                if used.contains("network:rx") {
-                    first.clear();
-                }
-                if used.contains("network:tx") {
-                    second.clear();
-                }
-            }
-            "cpu_ram" => {
-                if used.contains("cpu") {
-                    first.clear();
-                }
-                if used.contains("ram") {
-                    second.clear();
-                }
-            }
-            "gpu_llm" => {
-                if used.contains("gpu") {
-                    first.clear();
-                }
-                if used.contains("llm") {
-                    second.clear();
-                }
-            }
-            _ if used.contains(key) => {
-                first.clear();
-                second.clear();
-            }
-            _ => {}
-        }
-    }
-    columns.retain(|(_, first, second)| !first.is_empty() || !second.is_empty());
+    let mut columns = Vec::new();
     for (index, group) in settings.layout_groups.iter().enumerate() {
         let first = available.get(&group.first).cloned().unwrap_or_default();
         let second = available.get(&group.second).cloned().unwrap_or_default();
-        if !first.is_empty() || !second.is_empty() {
-            columns.push((format!("group:{index}"), first, second));
-        }
+        columns.push((format!("group:{index}"), first, second));
     }
     columns
 }

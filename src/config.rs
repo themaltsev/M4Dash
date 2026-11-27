@@ -88,7 +88,20 @@ impl Default for Settings {
             custom_fonts: BTreeMap::new(),
             custom_names: BTreeMap::new(),
             taskbar_order: Vec::new(),
-            layout_groups: Vec::new(),
+            layout_groups: vec![
+                LayoutGroup {
+                    first: "network:rx".into(),
+                    second: "network:tx".into(),
+                },
+                LayoutGroup {
+                    first: "cpu".into(),
+                    second: "ram".into(),
+                },
+                LayoutGroup {
+                    first: "gpu".into(),
+                    second: "llm".into(),
+                },
+            ],
             column_spacing_px: 16,
             font_size: 14.0,
             font_family: "Segoe UI".into(),
