@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.45 — respect tray launch mode
+
+- Keep the GUI hidden when launching a second instance while tray mode is selected.
+- Preserve the selected visibility when Windows elevation restarts the app.
+
 ## 0.1.44 — safe in-place font preservation
 
 - Skip copying custom fonts when Setup is upgrading in the same install directory.

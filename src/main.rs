@@ -28,9 +28,15 @@ fn main() -> Result<()> {
         .with_target(false)
         .init();
 
+    // Read the persisted launch mode before single-instance handling and UAC
+    // relaunch so a second launch cannot unexpectedly surface the GUI in tray
+    // mode.
+    let settings = config::Settings::load()?;
     let (instance_mutex, already_running) = single_instance_mutex()?;
     if already_running {
-        activate_existing_window();
+        if !settings.start_in_tray {
+            activate_existing_window();
+        }
         let _ = unsafe { windows::Win32::Foundation::CloseHandle(instance_mutex) };
         return Ok(());
     }
@@ -41,7 +47,10 @@ fn main() -> Result<()> {
         use std::os::windows::ffi::OsStrExt;
         use windows::{
             core::PCWSTR,
-            Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL},
+            Win32::UI::{
+                Shell::ShellExecuteW,
+                WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL},
+            },
         };
         let exe: Vec<u16> = std::env::current_exe()?
             .as_os_str()
@@ -50,6 +59,11 @@ fn main() -> Result<()> {
             .collect();
         let operation: Vec<u16> = "runas\0".encode_utf16().collect();
         let _ = unsafe { windows::Win32::Foundation::CloseHandle(instance_mutex) };
+        let show_command = if settings.start_in_tray {
+            SW_HIDE
+        } else {
+            SW_SHOWNORMAL
+        };
         let result = unsafe {
             ShellExecuteW(
                 None,
@@ -57,7 +71,7 @@ fn main() -> Result<()> {
                 PCWSTR(exe.as_ptr()),
                 PCWSTR::null(),
                 PCWSTR::null(),
-                SW_SHOWNORMAL,
+                show_command,
             )
         };
         if result.0 as isize > 32 {
@@ -66,7 +80,6 @@ fn main() -> Result<()> {
         anyhow::bail!("Windows elevation was not granted; CPU temperature sensors require administrator access");
     }
 
-    let settings = config::Settings::load()?;
     let snapshot = Arc::new(RwLock::new(hardware::Snapshot::default()));
     let extra = Arc::new(RwLock::new(hardware::ExtraSnapshot::default()));
     let llm_state = Arc::new(RwLock::new(llm::LlmSnapshot::default()));
