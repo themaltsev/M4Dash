@@ -23,6 +23,7 @@ pub struct MonitorApp {
     hardware: Arc<RwLock<Snapshot>>,
     extra: Arc<RwLock<ExtraSnapshot>>,
     llm: Arc<RwLock<LlmSnapshot>>,
+    overlay_settings: Arc<RwLock<Settings>>,
     shutdown: Arc<std::sync::atomic::AtomicBool>,
     tab: usize,
     status: String,
@@ -47,6 +48,14 @@ impl MonitorApp {
         llm: Arc<RwLock<LlmSnapshot>>,
         shutdown: Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
+        let overlay_settings = Arc::new(RwLock::new(settings.clone()));
+        start_taskbar_refresh(
+            overlay_settings.clone(),
+            hardware.clone(),
+            extra.clone(),
+            llm.clone(),
+            shutdown.clone(),
+        );
         let menu = tray_icon::menu::Menu::new();
         let open = tray_icon::menu::MenuItem::new(
             crate::i18n::tr(settings.language, "Открыть"),
@@ -74,6 +83,7 @@ impl MonitorApp {
             hardware,
             extra,
             llm,
+            overlay_settings,
             shutdown,
             tab: 0,
             status: String::new(),
@@ -163,6 +173,9 @@ impl eframe::App for MonitorApp {
         use std::sync::atomic::Ordering;
         let language = self.settings.language;
         let previous_settings = self.settings.clone();
+        if let Ok(mut overlay_settings) = self.overlay_settings.write() {
+            *overlay_settings = self.settings.clone();
+        }
         if !self.tray_handlers_registered {
             self.tray_handlers_registered = true;
             let actions = self.tray_actions.clone();
@@ -283,7 +296,7 @@ impl eframe::App for MonitorApp {
                     .as_deref(),
             );
         } else {
-            crate::taskbar::hide_text_overlay(ctx);
+            crate::taskbar::hide_text_overlay();
         }
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -996,6 +1009,76 @@ impl MonitorApp {
             crate::i18n::tr(language, "Тёмная тема"),
         );
     }
+}
+
+fn start_taskbar_refresh(
+    settings: Arc<RwLock<Settings>>,
+    hardware: Arc<RwLock<Snapshot>>,
+    extra: Arc<RwLock<ExtraSnapshot>>,
+    llm: Arc<RwLock<LlmSnapshot>>,
+    shutdown: Arc<std::sync::atomic::AtomicBool>,
+) {
+    std::thread::Builder::new()
+        .name("m4-taskbar-metrics".into())
+        .spawn(move || {
+            use std::sync::atomic::Ordering;
+            while !shutdown.load(Ordering::Acquire) {
+                let mut current_settings = settings
+                    .read()
+                    .map(|value| value.clone())
+                    .unwrap_or_default();
+                if current_settings.show_taskbar {
+                    let snapshot = hardware
+                        .read()
+                        .map(|value| value.clone())
+                        .unwrap_or_default();
+                    let extra_snapshot =
+                        extra.read().map(|value| value.clone()).unwrap_or_default();
+                    let llm_snapshot = llm.read().map(|value| value.clone()).unwrap_or_default();
+                    let columns = grouped_items(
+                        &current_settings,
+                        taskbar_items(&current_settings, &snapshot, &extra_snapshot, &llm_snapshot),
+                    );
+                    let order = ordered_keys(&mut current_settings.taskbar_order, &columns);
+                    let visible = order
+                        .iter()
+                        .filter_map(|key| {
+                            columns
+                                .iter()
+                                .find(|(id, _, _)| id == key)
+                                .filter(|(_, first, second)| {
+                                    !first.is_empty() || !second.is_empty()
+                                })
+                                .map(|(id, first, second)| {
+                                    let width = id
+                                        .strip_prefix("group:")
+                                        .and_then(|index| index.parse::<usize>().ok())
+                                        .and_then(|index| current_settings.layout_groups.get(index))
+                                        .map(|group| group.width_chars)
+                                        .unwrap_or(28);
+                                    (format!("{first}\n{second}"), width)
+                                })
+                        })
+                        .collect();
+                    let font_path = current_settings
+                        .custom_fonts
+                        .get(&current_settings.font_family)
+                        .map(|file| portable_font_dir().join(file));
+                    crate::taskbar::refresh_text_overlay(
+                        visible,
+                        current_settings.font_size,
+                        current_settings.text_color,
+                        &current_settings.font_family,
+                        current_settings.column_spacing_px,
+                        font_path.as_deref(),
+                    );
+                } else {
+                    crate::taskbar::hide_text_overlay();
+                }
+                std::thread::sleep(Duration::from_millis(current_settings.refresh_ms.max(500)));
+            }
+        })
+        .expect("spawn taskbar metrics refresher");
 }
 
 fn taskbar_items(

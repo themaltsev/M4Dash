@@ -136,3 +136,10 @@
 - Windows x64 release build passed. LM Studio block name, API address, and `lms.exe` path controls moved below hardware sensors; the separate tab was removed and remaining tab indices adjusted.
 - Deployed to HOME-PC Portable; existing settings file remained present (2914 bytes), shortcut target/icon remain valid, autostart is disabled, and process PID 11688 is running.
 - Remote process check reports `MainWindowHandle=0`; the new tab placement was not visually verified through SSH. TrafficMonitor was not changed.
+
+## 2026-11-27 — Portable v0.1.31 tray-mode overlay refresh
+
+- Windows x64 release build passed. Moved taskbar metrics refresh to an independent worker so the hidden egui viewport no longer freezes the first (empty) telemetry frame.
+- On HOME-PC, verified `start_in_tray=True`; LibreHardwareMonitor reported Ryzen 5 5600X, CPU temperature ~53°C, DDR4 at 3600 MHz, and 11 board sensors.
+- Captured the desktop about 3 seconds after startup: no M4 PC Monitor interface was visible, while the taskbar showed current CPU/GPU/RAM values (CPU 3.7 GHz, 19%, 54°C; DDR4 3.6 GHz, 17/32 GB; RTX 3070 9%, 63°C). After the window settled, the process had no main settings window (`MainWindowHandle=0`).
+- The interactive diagnostic capture temporarily opened its own PowerShell window; the capture task/process and screenshots were removed after verification. The M4 app itself remained in tray mode. Existing settings were preserved.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.31 — keep taskbar metrics live in tray mode
+
+- Refresh the native taskbar overlay from a background worker so telemetry continues when the main window is hidden and egui no longer emits frames.
+
+
 ## 0.1.30 — start hidden in tray mode
 
 - Create the main window hidden when the saved startup mode is the system tray, so it no longer flashes open before being hidden.

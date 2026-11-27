@@ -69,7 +69,7 @@ pub fn show_text_overlay(
         if !EMPTY_LOGGED.swap(true, Ordering::Relaxed) {
             diagnostic("taskbar renderer called with zero visible columns");
         }
-        hide_text_overlay(_ctx);
+        hide_text_overlay();
         return;
     }
     if !FIRST_CALL_LOGGED.swap(true, Ordering::Relaxed) {
@@ -79,62 +79,14 @@ pub fn show_text_overlay(
         ));
     }
 
-    FONT_SIZE_BITS.store(font_size.max(6.0).to_bits(), Ordering::Relaxed);
-    COLUMN_SPACING_PX.store(u32::from(column_spacing_px), Ordering::Relaxed);
-    if let Some(path) = font_path {
-        register_private_font(path);
-    }
-    let rgb = u32::from(color[0]) | (u32::from(color[1]) << 8) | (u32::from(color[2]) << 16);
-    TEXT_RGB.store(rgb, Ordering::Relaxed);
-    if let Ok(mut font) = FONT_NAME.lock() {
-        *font = font_family.to_string();
-    }
-    let family_hash = font_family
-        .bytes()
-        .fold(0xcbf29ce484222325u64, |hash, byte| {
-            (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
-        });
-    let path_hash = font_path
-        .map(|path| {
-            path.as_os_str()
-                .encode_wide()
-                .fold(0xcbf29ce484222325u64, |hash, unit| {
-                    (hash ^ u64::from(unit)).wrapping_mul(0x100000001b3)
-                })
-        })
-        .unwrap_or_default();
-    let style_key = family_hash
-        ^ path_hash.rotate_left(29)
-        ^ u64::from(font_size.max(6.0).to_bits()).rotate_left(17)
-        ^ u64::from(rgb).rotate_left(41);
-    let style_changed = DRAW_STYLE_KEY.swap(style_key, Ordering::Relaxed) != style_key;
-
-    let draw_columns: Vec<(String, String, u16)> = columns
-        .iter()
-        .map(|(column, width)| {
-            (
-                column.lines().next().unwrap_or_default().to_owned(),
-                column.lines().nth(1).unwrap_or_default().to_owned(),
-                *width,
-            )
-        })
-        .collect();
-    if let Ok(mut current) = DRAW_COLUMNS.lock() {
-        *current = draw_columns.clone();
-    }
-    let data_key = draw_columns
-        .iter()
-        .flat_map(|(top, bottom, width)| {
-            top.chars()
-                .chain(['\n'])
-                .chain(bottom.chars())
-                .chain(['\0', char::from_u32(u32::from(*width)).unwrap_or('\0')])
-        })
-        .fold(
-            0xcbf29ce484222325u64 ^ u64::from(column_spacing_px),
-            |hash, character| (hash ^ u64::from(character as u32)).wrapping_mul(0x100000001b3),
-        );
-    let data_changed = DRAW_DATA_KEY.swap(data_key, Ordering::Relaxed) != data_key;
+    let (style_changed, data_changed) = store_draw_model(
+        &columns,
+        font_size,
+        color,
+        font_family,
+        column_spacing_px,
+        font_path,
+    );
 
     unsafe {
         let taskbar = match taskbar_hwnd() {
@@ -170,6 +122,112 @@ pub fn show_text_overlay(
     }
 }
 
+/// Update the native taskbar child from a background worker. The egui viewport
+/// can be hidden in tray mode and stop producing frames, so telemetry refresh
+/// must not depend on `eframe::App::update` continuing to run.
+pub fn refresh_text_overlay(
+    columns: Vec<(String, u16)>,
+    font_size: f32,
+    color: [u8; 3],
+    font_family: &str,
+    column_spacing_px: u16,
+    font_path: Option<&Path>,
+) {
+    if columns.is_empty() {
+        hide_text_overlay();
+        return;
+    }
+    let (style_changed, data_changed) = store_draw_model(
+        &columns,
+        font_size,
+        color,
+        font_family,
+        column_spacing_px,
+        font_path,
+    );
+    let raw = CHILD.load(Ordering::Relaxed);
+    if raw == 0 {
+        return;
+    }
+    unsafe {
+        let child = HWND(raw as *mut _);
+        if !windows::Win32::UI::WindowsAndMessaging::IsWindow(Some(child)).as_bool() {
+            return;
+        }
+        if style_changed || data_changed {
+            let _ = InvalidateRect(Some(child), None, true);
+            let _ = UpdateWindow(child);
+        }
+        let _ = ShowWindow(child, SW_SHOWNA);
+    }
+}
+
+fn store_draw_model(
+    columns: &[(String, u16)],
+    font_size: f32,
+    color: [u8; 3],
+    font_family: &str,
+    column_spacing_px: u16,
+    font_path: Option<&Path>,
+) -> (bool, bool) {
+    FONT_SIZE_BITS.store(font_size.max(6.0).to_bits(), Ordering::Relaxed);
+    COLUMN_SPACING_PX.store(u32::from(column_spacing_px), Ordering::Relaxed);
+    if let Some(path) = font_path {
+        register_private_font(path);
+    }
+    let rgb = u32::from(color[0]) | (u32::from(color[1]) << 8) | (u32::from(color[2]) << 16);
+    TEXT_RGB.store(rgb, Ordering::Relaxed);
+    if let Ok(mut font) = FONT_NAME.lock() {
+        *font = font_family.to_string();
+    }
+    let family_hash = font_family
+        .bytes()
+        .fold(0xcbf29ce484222325u64, |hash, byte| {
+            (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
+        });
+    let path_hash = font_path
+        .map(|path| {
+            path.as_os_str()
+                .encode_wide()
+                .fold(0xcbf29ce484222325u64, |hash, unit| {
+                    (hash ^ u64::from(unit)).wrapping_mul(0x100000001b3)
+                })
+        })
+        .unwrap_or_default();
+    let style_key = family_hash
+        ^ path_hash.rotate_left(29)
+        ^ u64::from(font_size.max(6.0).to_bits()).rotate_left(17)
+        ^ u64::from(rgb).rotate_left(41);
+    let style_changed = DRAW_STYLE_KEY.swap(style_key, Ordering::Relaxed) != style_key;
+    let draw_columns: Vec<(String, String, u16)> = columns
+        .iter()
+        .map(|(column, width)| {
+            (
+                column.lines().next().unwrap_or_default().to_owned(),
+                column.lines().nth(1).unwrap_or_default().to_owned(),
+                *width,
+            )
+        })
+        .collect();
+    if let Ok(mut current) = DRAW_COLUMNS.lock() {
+        *current = draw_columns.clone();
+    }
+    let data_key = draw_columns
+        .iter()
+        .flat_map(|(top, bottom, width)| {
+            top.chars()
+                .chain(['\n'])
+                .chain(bottom.chars())
+                .chain(['\0', char::from_u32(u32::from(*width)).unwrap_or('\0')])
+        })
+        .fold(
+            0xcbf29ce484222325u64 ^ u64::from(column_spacing_px),
+            |hash, character| (hash ^ u64::from(character as u32)).wrapping_mul(0x100000001b3),
+        );
+    let data_changed = DRAW_DATA_KEY.swap(data_key, Ordering::Relaxed) != data_key;
+    (style_changed, data_changed)
+}
+
 fn register_private_font(path: &Path) {
     let Ok(path) = std::fs::canonicalize(path) else {
         return;
@@ -189,7 +247,7 @@ fn register_private_font(path: &Path) {
     }
 }
 
-pub fn hide_text_overlay(_ctx: &eframe::egui::Context) {
+pub fn hide_text_overlay() {
     let raw = CHILD.load(Ordering::Relaxed);
     if raw != 0 {
         unsafe {
