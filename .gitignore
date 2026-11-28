@@ -9,3 +9,4 @@
 *.ico
 !assets/M4PCMonitor.ico
 *.png
+!docs/screenshots/*.png

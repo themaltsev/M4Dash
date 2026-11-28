@@ -18,10 +18,30 @@ The app stores its settings next to the executable. When upgrading from M4 PC Mo
 ## What it monitors
 
 - CPU, memory, disks, network interfaces, GPU, and available motherboard sensors.
-- Optional local LM Studio status through its API and command-line tool.
+- Optional local LLM status from LM Studio or a running RustingStrata server (model name and generation speed).
 - User-defined two-row taskbar groups, sensor visibility, ordering, and spacing.
 
 CPU and motherboard readings are provided by LibreHardwareMonitor. Other device metrics are collected by M4Dash. RAM bandwidth is omitted when no reliable live provider is available.
+
+## Screenshots
+
+Examples of the taskbar metrics and the Sensors, Layout, and General settings pages:
+
+<p align="center">
+  <img src="docs/screenshots/taskbar-metrics.png" alt="M4Dash hardware and LLM metrics in the Windows taskbar" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/settings-sensors.png" alt="M4Dash Sensors settings" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/settings-layout.png" alt="M4Dash taskbar Layout settings" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/settings-general.png" alt="M4Dash General and appearance settings" width="760">
+</p>
 
 ## Configure
 
