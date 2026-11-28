@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.50 — detect RustingStrata LLM runtime
+
+- Prefer RustingStrata local `/api/stats` when it is running, displaying its model name and live generation tokens per second.
+- Fall back to the existing LM Studio runtime collector when RustingStrata is unavailable.
+
 ## 0.1.49 — launch in background like M4Speech
 
 - Replace the global startup visibility selector with a single Windows-startup checkbox that runs M4Dash hidden in the tray.

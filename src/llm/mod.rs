@@ -4,7 +4,7 @@ pub use parser::{LlmParser, LlmPhase};
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{Arc, RwLock},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -33,6 +33,30 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Settings) {
             let mut parser = LlmParser::default();
             let api = reqwest::Client::builder().timeout(Duration::from_secs(2)).build().unwrap();
             let base = settings.llm_api.trim_end_matches('/').to_owned();
+            let lm_snapshot = Arc::new(RwLock::new(LlmSnapshot::default()));
+            let strata_snapshot: Arc<RwLock<Option<(Instant, LlmSnapshot)>>> = Arc::new(RwLock::new(None));
+            let poll_api = api.clone();
+            let poll_lm = lm_snapshot.clone();
+            let poll_strata = strata_snapshot.clone();
+            let poll_out = out.clone();
+            tokio::spawn(async move {
+                let mut tick = time::interval(Duration::from_secs(1));
+                let mut previous: Option<(usize, Instant)> = None;
+                loop {
+                    tick.tick().await;
+                    let now = Instant::now();
+                    let response = poll_api.get("http://127.0.0.1:8080/api/stats").send().await;
+                    let snapshot = match response {
+                        Ok(r) if r.status().is_success() => r.json::<RustingStrataStats>().await.ok()
+                            .map(|stats| strata_snapshot_from_stats(stats, &mut previous, now)),
+                        _ => None,
+                    };
+                    if let Ok(mut state) = poll_strata.write() {
+                        *state = snapshot.map(|s| (now, s));
+                    }
+                    publish_selected(&poll_out, &poll_lm, &poll_strata);
+                }
+            });
             let mut inventory_tick = time::interval(Duration::from_secs(3));
             loop {
                 let cli = find_lms(&settings.lms_path);
@@ -55,7 +79,7 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Settings) {
                         loop {
                             tokio::select! {
                                 line = lines.next_line() => match line {
-                                    Ok(Some(line)) => { parser.process(&line); if let Ok(mut s)=out.write(){*s=parser.snapshot();} }
+                                    Ok(Some(line)) => { parser.process(&line); if let Ok(mut s)=lm_snapshot.write(){*s=parser.snapshot();} publish_selected(&out, &lm_snapshot, &strata_snapshot); }
                                     _ => break,
                                 },
                                 _ = inventory_tick.tick() => {
@@ -64,7 +88,8 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Settings) {
                                     let loaded = inventory.is_some();
                                     let models = inventory.as_ref().map(read_loaded_models).unwrap_or_default();
                                     parser.set_inventory(loaded,models);
-                                    if let Ok(mut s)=out.write(){*s=parser.snapshot();}
+                                    if let Ok(mut s)=lm_snapshot.write(){*s=parser.snapshot();}
+                                    publish_selected(&out, &lm_snapshot, &strata_snapshot);
                                 }
                             }
                         }
@@ -75,6 +100,95 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Settings) {
         });
     }).expect("spawn llm collector");
 }
+
+#[derive(Deserialize)]
+struct RustingStrataStats {
+    model: Option<String>,
+    #[serde(default)]
+    busy: usize,
+    #[serde(default)]
+    live_tokens: usize,
+    #[serde(default)]
+    recent: Vec<RustingStrataRequest>,
+}
+
+#[derive(Deserialize)]
+struct RustingStrataRequest {
+    model: String,
+    completion_tokens: usize,
+    decode_ms: f64,
+}
+
+fn strata_snapshot_from_stats(
+    stats: RustingStrataStats,
+    previous: &mut Option<(usize, Instant)>,
+    now: Instant,
+) -> LlmSnapshot {
+    let model_loaded = stats.model.is_some();
+    let model = stats.model.filter(|m| !m.trim().is_empty()).or_else(|| {
+        stats
+            .recent
+            .last()
+            .map(|r| r.model.clone())
+            .filter(|m| !m.trim().is_empty())
+    });
+    let final_speed_tps = stats
+        .recent
+        .last()
+        .and_then(|r| {
+            (r.decode_ms > 0.0).then_some(r.completion_tokens as f32 * 1000.0 / r.decode_ms as f32)
+        })
+        .filter(|v| v.is_finite() && *v > 0.0 && *v < 10000.0);
+    let speed_tps = if stats.busy > 0 {
+        let result = previous
+            .and_then(|(tokens, at)| {
+                let elapsed = now.duration_since(at).as_secs_f32();
+                (stats.live_tokens >= tokens && elapsed > 0.0)
+                    .then_some((stats.live_tokens - tokens) as f32 / elapsed)
+            })
+            .filter(|v| v.is_finite() && *v > 0.0 && *v < 10000.0);
+        *previous = Some((stats.live_tokens, now));
+        result
+    } else {
+        *previous = None;
+        None
+    };
+    LlmSnapshot {
+        server_available: true,
+        model,
+        phase: if stats.busy > 0 {
+            if speed_tps.is_some() {
+                LlmPhase::Tg
+            } else {
+                LlmPhase::Preparing
+            }
+        } else if model_loaded || final_speed_tps.is_some() {
+            LlmPhase::Idle
+        } else {
+            LlmPhase::NoModel
+        },
+        progress_pct: None,
+        speed_tps,
+        final_speed_tps,
+    }
+}
+
+fn publish_selected(
+    out: &Arc<RwLock<LlmSnapshot>>,
+    lm: &Arc<RwLock<LlmSnapshot>>,
+    strata: &Arc<RwLock<Option<(Instant, LlmSnapshot)>>>,
+) {
+    let preferred = strata.read().ok().and_then(|s| {
+        s.as_ref()
+            .filter(|(at, _)| at.elapsed() < Duration::from_secs(3))
+            .map(|(_, snapshot)| snapshot.clone())
+    });
+    let fallback = lm.read().ok().map(|s| s.clone()).unwrap_or_default();
+    if let Ok(mut current) = out.write() {
+        *current = preferred.unwrap_or(fallback);
+    }
+}
+
 fn read_loaded_models(root: &serde_json::Value) -> Vec<String> {
     root.get("models")
         .and_then(|m| m.as_array())
