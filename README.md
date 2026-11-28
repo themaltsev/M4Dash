@@ -47,8 +47,9 @@ Examples of the taskbar metrics and the Sensors, Layout, and General settings pa
 
 Open **M4Dash** from the tray menu to edit settings:
 
-- **Sensors** — enable sensors and configure the local LM Studio API address and `lms.exe` path.
+- **Sensors** — enable hardware sensors and view the current LLM model and generation status.
 - **Layout** — choose which values appear in each taskbar group, then arrange the groups and spacing.
+- **LLM** — select automatic detection, LM Studio, or RustingStrata and configure their local API addresses. Automatic mode prefers RustingStrata, then falls back to LM Studio; RustingStrata tokens/s is measured from its live generation counter.
 - **General** — configure background startup with Windows, refresh interval, language, theme, and update controls.
 
 The interface uses a larger Windows-style Segoe UI font. Font, text size, and color settings apply only to taskbar metrics. The theme can follow Windows (**System**) or be set to Light or Dark. English is the default; Russian, Brazilian Portuguese, Persian, Spanish, French, Italian, and Chinese are also available.

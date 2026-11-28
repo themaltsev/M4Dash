@@ -89,6 +89,15 @@ pub enum ThemeMode {
     Dark,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LlmProvider {
+    #[default]
+    Automatic,
+    LmStudio,
+    RustingStrata,
+}
+
 impl ThemeMode {
     pub fn is_dark(self, system_is_dark: bool) -> bool {
         match self {
@@ -231,7 +240,9 @@ pub struct Settings {
     #[serde(default, rename = "dark_theme", skip_serializing)]
     pub legacy_dark_theme: Option<bool>,
     pub refresh_ms: u64,
+    pub llm_provider: LlmProvider,
     pub llm_api: String,
+    pub strata_api: String,
     pub lms_path: String,
     pub show_taskbar: bool,
     pub show_cpu: bool,
@@ -264,7 +275,9 @@ impl Default for Settings {
             theme_mode: ThemeMode::System,
             legacy_dark_theme: None,
             refresh_ms: 200,
+            llm_provider: LlmProvider::Automatic,
             llm_api: "http://127.0.0.1:1234".into(),
+            strata_api: "http://127.0.0.1:8080".into(),
             lms_path: String::new(),
             show_taskbar: true,
             show_cpu: true,

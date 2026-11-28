@@ -1,5 +1,5 @@
 mod parser;
-use crate::config::Settings;
+use crate::config::{LlmProvider, Settings};
 pub use parser::{LlmParser, LlmPhase};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -26,40 +26,52 @@ pub struct LlmSnapshot {
     pub final_speed_tps: Option<f32>,
 }
 
-pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Settings) {
+pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Arc<RwLock<Settings>>) {
     std::thread::Builder::new().name("m4-llm-provider".into()).spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("tokio runtime");
         rt.block_on(async move {
             let mut parser = LlmParser::default();
             let api = reqwest::Client::builder().timeout(Duration::from_secs(2)).build().unwrap();
-            let base = settings.llm_api.trim_end_matches('/').to_owned();
             let lm_snapshot = Arc::new(RwLock::new(LlmSnapshot::default()));
             let strata_snapshot: Arc<RwLock<Option<(Instant, LlmSnapshot)>>> = Arc::new(RwLock::new(None));
             let poll_api = api.clone();
             let poll_lm = lm_snapshot.clone();
             let poll_strata = strata_snapshot.clone();
             let poll_out = out.clone();
+            let poll_settings = settings.clone();
             tokio::spawn(async move {
                 let mut tick = time::interval(Duration::from_secs(1));
                 let mut previous: Option<(usize, Instant)> = None;
                 loop {
                     tick.tick().await;
                     let now = Instant::now();
-                    let response = poll_api.get("http://127.0.0.1:8080/api/stats").send().await;
-                    let snapshot = match response {
-                        Ok(r) if r.status().is_success() => r.json::<RustingStrataStats>().await.ok()
-                            .map(|stats| strata_snapshot_from_stats(stats, &mut previous, now)),
-                        _ => None,
+                    let current = read_settings(&poll_settings);
+                    let snapshot = if current.llm_provider != LlmProvider::LmStudio {
+                        let base = current.strata_api.trim_end_matches('/');
+                        match poll_api.get(format!("{base}/api/stats")).send().await {
+                            Ok(r) if r.status().is_success() => r.json::<RustingStrataStats>().await.ok()
+                                .map(|stats| strata_snapshot_from_stats(stats, &mut previous, now)),
+                            _ => None,
+                        }
+                    } else {
+                        previous = None;
+                        None
                     };
                     if let Ok(mut state) = poll_strata.write() {
                         *state = snapshot.map(|s| (now, s));
                     }
-                    publish_selected(&poll_out, &poll_lm, &poll_strata);
+                    publish_selected(&poll_out, &poll_lm, &poll_strata, &poll_settings);
                 }
             });
             let mut inventory_tick = time::interval(Duration::from_secs(3));
+            let mut mode_tick = time::interval(Duration::from_secs(1));
             loop {
-                let cli = find_lms(&settings.lms_path);
+                let current = read_settings(&settings);
+                if current.llm_provider == LlmProvider::RustingStrata {
+                    time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+                let cli = find_lms(&current.lms_path);
                 if let Some(cli) = cli {
                     let mut command = Command::new(cli);
                     command
@@ -79,26 +91,50 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Settings) {
                         loop {
                             tokio::select! {
                                 line = lines.next_line() => match line {
-                                    Ok(Some(line)) => { parser.process(&line); if let Ok(mut s)=lm_snapshot.write(){*s=parser.snapshot();} publish_selected(&out, &lm_snapshot, &strata_snapshot); }
+                                    Ok(Some(line)) => { parser.process(&line); if let Ok(mut s)=lm_snapshot.write(){*s=parser.snapshot();} publish_selected(&out, &lm_snapshot, &strata_snapshot, &settings); }
                                     _ => break,
                                 },
                                 _ = inventory_tick.tick() => {
+                                    if read_settings(&settings).llm_provider == LlmProvider::RustingStrata { break; }
+                                    let base = read_settings(&settings).llm_api.trim_end_matches('/').to_owned();
                                     let response = api.get(format!("{base}/api/v1/models")).send().await;
                                     let inventory = match response { Ok(r) if r.status().is_success()=>r.json::<serde_json::Value>().await.ok(), _=>None };
                                     let loaded = inventory.is_some();
                                     let models = inventory.as_ref().map(read_loaded_models).unwrap_or_default();
                                     parser.set_inventory(loaded,models);
                                     if let Ok(mut s)=lm_snapshot.write(){*s=parser.snapshot();}
-                                    publish_selected(&out, &lm_snapshot, &strata_snapshot);
-                                }
+                                    publish_selected(&out, &lm_snapshot, &strata_snapshot, &settings);
+                                },
+                                _ = mode_tick.tick() => {
+                                    if read_settings(&settings).llm_provider == LlmProvider::RustingStrata { break; }
+                                },
                             }
                         }
                     }
                     let _ = child.kill().await;
-                } else { time::sleep(Duration::from_secs(4)).await; }
+                } else {
+                    tokio::select! {
+                        _ = inventory_tick.tick() => {
+                            if read_settings(&settings).llm_provider == LlmProvider::RustingStrata { continue; }
+                            let base = read_settings(&settings).llm_api.trim_end_matches('/').to_owned();
+                            let response = api.get(format!("{base}/api/v1/models")).send().await;
+                            let inventory = match response { Ok(r) if r.status().is_success()=>r.json::<serde_json::Value>().await.ok(), _=>None };
+                            let loaded = inventory.is_some();
+                            let models = inventory.as_ref().map(read_loaded_models).unwrap_or_default();
+                            parser.set_inventory(loaded, models);
+                            if let Ok(mut s)=lm_snapshot.write(){*s=parser.snapshot();}
+                            publish_selected(&out, &lm_snapshot, &strata_snapshot, &settings);
+                        },
+                        _ = time::sleep(Duration::from_secs(1)) => {}
+                    }
+                }
             }
         });
     }).expect("spawn llm collector");
+}
+
+fn read_settings(settings: &Arc<RwLock<Settings>>) -> Settings {
+    settings.read().map(|s| s.clone()).unwrap_or_default()
 }
 
 #[derive(Deserialize)]
@@ -177,6 +213,7 @@ fn publish_selected(
     out: &Arc<RwLock<LlmSnapshot>>,
     lm: &Arc<RwLock<LlmSnapshot>>,
     strata: &Arc<RwLock<Option<(Instant, LlmSnapshot)>>>,
+    settings: &Arc<RwLock<Settings>>,
 ) {
     let preferred = strata.read().ok().and_then(|s| {
         s.as_ref()
@@ -184,8 +221,21 @@ fn publish_selected(
             .map(|(_, snapshot)| snapshot.clone())
     });
     let fallback = lm.read().ok().map(|s| s.clone()).unwrap_or_default();
+    let current = read_settings(settings);
+    let selected = match current.llm_provider {
+        LlmProvider::Automatic => preferred.unwrap_or(fallback),
+        LlmProvider::LmStudio => fallback,
+        LlmProvider::RustingStrata => preferred.unwrap_or(LlmSnapshot {
+            server_available: false,
+            model: None,
+            phase: LlmPhase::Offline,
+            progress_pct: None,
+            speed_tps: None,
+            final_speed_tps: None,
+        }),
+    };
     if let Ok(mut current) = out.write() {
-        *current = preferred.unwrap_or(fallback);
+        *current = selected;
     }
 }
 

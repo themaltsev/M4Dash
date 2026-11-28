@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.51 — configurable LLM providers
+
+- Add a dedicated LLM tab with automatic, LM Studio, and RustingStrata provider selection and editable API addresses.
+- Make provider and API setting changes apply live; automatic mode prefers RustingStrata and falls back to LM Studio.
+- Rename the LLM block consistently and format RAM usage as `16/32 GB 50%` without parentheses.
+
 ## 0.1.50 — detect RustingStrata LLM runtime
 
 - Prefer RustingStrata local `/api/stats` when it is running, displaying its model name and live generation tokens per second.

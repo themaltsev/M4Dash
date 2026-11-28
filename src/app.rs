@@ -1,5 +1,5 @@
 use crate::{
-    config::{Settings, SpeedUnit, ThemeMode},
+    config::{LlmProvider, Settings, SpeedUnit, ThemeMode},
     hardware::{ExtraSnapshot, Snapshot},
     llm::{LlmPhase, LlmSnapshot},
 };
@@ -23,6 +23,7 @@ pub struct MonitorApp {
     hardware: Arc<RwLock<Snapshot>>,
     extra: Arc<RwLock<ExtraSnapshot>>,
     llm: Arc<RwLock<LlmSnapshot>>,
+    llm_settings: Arc<RwLock<Settings>>,
     overlay_settings: Arc<RwLock<Settings>>,
     shutdown: Arc<std::sync::atomic::AtomicBool>,
     tab: usize,
@@ -50,6 +51,7 @@ impl MonitorApp {
         hardware: Arc<RwLock<Snapshot>>,
         extra: Arc<RwLock<ExtraSnapshot>>,
         llm: Arc<RwLock<LlmSnapshot>>,
+        llm_settings: Arc<RwLock<Settings>>,
         shutdown: Arc<std::sync::atomic::AtomicBool>,
         launch_in_background: bool,
     ) -> Self {
@@ -97,6 +99,7 @@ impl MonitorApp {
             hardware,
             extra,
             llm,
+            llm_settings,
             overlay_settings,
             shutdown,
             tab: 0,
@@ -193,6 +196,9 @@ impl eframe::App for MonitorApp {
         let previous_settings = self.settings.clone();
         if let Ok(mut overlay_settings) = self.overlay_settings.write() {
             *overlay_settings = self.settings.clone();
+        }
+        if let Ok(mut llm_settings) = self.llm_settings.write() {
+            *llm_settings = self.settings.clone();
         }
         if !self.tray_handlers_registered {
             self.tray_handlers_registered = true;
@@ -320,7 +326,9 @@ impl eframe::App for MonitorApp {
             });
             ui.separator();
             ui.horizontal_wrapped(|ui| {
-                for (i, title) in ["Датчики", "Расположение", "Общие"].iter().enumerate()
+                for (i, title) in ["Датчики", "Расположение", "LLM", "Общие"]
+                    .iter()
+                    .enumerate()
                 {
                     if ui
                         .selectable_label(self.tab == i, crate::i18n::tr(language, title))
@@ -336,6 +344,7 @@ impl eframe::App for MonitorApp {
                 match self.tab {
                     0 => self.sensor_page(ui, &s, &x, &l),
                     1 => self.layout_page(ui, &s, &x),
+                    2 => self.llm_page(ui),
                     _ => self.general_page(ui),
                 }
                 ui.separator();
@@ -735,7 +744,7 @@ impl MonitorApp {
             self.edit_name(ui, "ram", "RAM");
         });
         ui.label(format!(
-            "{} {}{:.1}/{:.1} GiB ({})",
+            "{} {}{:.1}/{:.1} GiB {}",
             x.memory_type.as_deref().unwrap_or("RAM"),
             x.memory_speed_mhz
                 .map(|mhz| format!("{:.1}GHz ", mhz as f64 / 1000.0))
@@ -852,7 +861,7 @@ impl MonitorApp {
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_llm, "");
-            ui.label(self.name("llm", "LM Studio"));
+            ui.label(self.name("llm", "LLM"));
         });
         ui.label(format!(
             "{} · {} · {}",
@@ -864,8 +873,6 @@ impl MonitorApp {
                 .map(|v| format!("{v:.2} {}", crate::i18n::tr(language, "токен/с")))
                 .unwrap_or_default()
         ));
-        ui.separator();
-        self.llm_page(ui);
     }
     fn layout_page(&mut self, ui: &mut egui::Ui, s: &Snapshot, x: &ExtraSnapshot) {
         let language = self.settings.language;
@@ -903,7 +910,7 @@ impl MonitorApp {
             (self.settings.show_cpu, "cpu", "CPU"),
             (self.settings.show_ram, "ram", "RAM"),
             (self.settings.show_gpu, "gpu", "GPU"),
-            (self.settings.show_llm, "llm", "LM Studio"),
+            (self.settings.show_llm, "llm", "LLM"),
             (self.settings.show_motherboard, "motherboard", "MBR"),
         ] {
             if enabled {
@@ -1013,16 +1020,58 @@ impl MonitorApp {
     }
     fn llm_page(&mut self, ui: &mut egui::Ui) {
         let language = self.settings.language;
-        ui.heading(crate::i18n::tr(language, "Настройки LM Studio"));
+        ui.heading(crate::i18n::tr(language, "Настройки LLM"));
         ui.label(crate::i18n::tr(language, "Название блока"));
-        self.edit_name(ui, "llm", "LM Studio");
-        ui.label(crate::i18n::tr(language, "Адрес API"));
-        ui.text_edit_singleline(&mut self.settings.llm_api);
-        ui.label(crate::i18n::tr(
-            language,
-            "Путь к lms.exe (пусто — автообнаружение)",
-        ));
-        ui.text_edit_singleline(&mut self.settings.lms_path);
+        self.edit_name(ui, "llm", "LLM");
+        egui::ComboBox::from_label(crate::i18n::tr(language, "Провайдер LLM"))
+            .selected_text(crate::i18n::tr(
+                language,
+                match self.settings.llm_provider {
+                    LlmProvider::Automatic => "Автоопределение",
+                    LlmProvider::LmStudio => "LM Studio",
+                    LlmProvider::RustingStrata => "RustingStrata",
+                },
+            ))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(
+                    &mut self.settings.llm_provider,
+                    LlmProvider::Automatic,
+                    crate::i18n::tr(language, "Автоопределение"),
+                );
+                ui.selectable_value(
+                    &mut self.settings.llm_provider,
+                    LlmProvider::LmStudio,
+                    "LM Studio",
+                );
+                ui.selectable_value(
+                    &mut self.settings.llm_provider,
+                    LlmProvider::RustingStrata,
+                    "RustingStrata",
+                );
+            });
+        if self.settings.llm_provider != LlmProvider::RustingStrata {
+            ui.label(crate::i18n::tr(language, "Адрес API LM Studio"));
+            ui.text_edit_singleline(&mut self.settings.llm_api);
+            ui.label(crate::i18n::tr(
+                language,
+                "Путь к lms.exe (пусто — автообнаружение)",
+            ));
+            ui.text_edit_singleline(&mut self.settings.lms_path);
+        }
+        if self.settings.llm_provider != LlmProvider::LmStudio {
+            ui.label(crate::i18n::tr(language, "Адрес API RustingStrata"));
+            ui.text_edit_singleline(&mut self.settings.strata_api);
+            ui.weak(crate::i18n::tr(
+                language,
+                "В RustingStrata модель берётся из API, а скорость измеряется по счётчику генерации.",
+            ));
+        }
+        if self.settings.llm_provider == LlmProvider::Automatic {
+            ui.weak(crate::i18n::tr(
+                language,
+                "Авто: сначала RustingStrata, затем LM Studio.",
+            ));
+        }
     }
     fn general_page(&mut self, ui: &mut egui::Ui) {
         let language = self.settings.language;
@@ -1296,7 +1345,7 @@ fn taskbar_items(
                 .map(|mhz| format!("{:.1} GHz", mhz as f64 / 1000.0))
                 .unwrap_or_else(|| "N/A GHz".into());
             format!(
-                "{} {}: {:.0}/{:.0} GB ({})",
+                "{} {}: {:.0}/{:.0} GB {}",
                 name("ram", ram_type),
                 frequency,
                 s.ram_used_bytes as f64 / 1073741824.0,
@@ -1557,7 +1606,7 @@ fn phase_name(p: LlmPhase, language: crate::config::Language) -> &'static str {
         LlmPhase::Tg => crate::i18n::tr(language, "Генерация"),
         LlmPhase::Unloading => crate::i18n::tr(language, "Выгрузка"),
         LlmPhase::Idle => crate::i18n::tr(language, "Ожидание"),
-        LlmPhase::Offline => crate::i18n::tr(language, "LM Studio offline"),
+        LlmPhase::Offline => crate::i18n::tr(language, "LLM offline"),
         LlmPhase::Unknown => crate::i18n::tr(language, "Статус неизвестен"),
         LlmPhase::NoModel => crate::i18n::tr(language, "Нет загруженной модели"),
     }

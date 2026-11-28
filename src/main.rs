@@ -88,6 +88,7 @@ fn main() -> Result<()> {
     let snapshot = Arc::new(RwLock::new(hardware::Snapshot::default()));
     let extra = Arc::new(RwLock::new(hardware::ExtraSnapshot::default()));
     let llm_state = Arc::new(RwLock::new(llm::LlmSnapshot::default()));
+    let llm_settings = Arc::new(RwLock::new(settings.clone()));
     let shutdown = Arc::new(AtomicBool::new(false));
     hardware::start(
         snapshot.clone(),
@@ -95,7 +96,7 @@ fn main() -> Result<()> {
         settings.clone(),
         shutdown.clone(),
     );
-    llm::start(llm_state.clone(), settings.clone());
+    llm::start(llm_state.clone(), llm_settings.clone());
 
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
@@ -116,6 +117,7 @@ fn main() -> Result<()> {
                 snapshot,
                 extra,
                 llm_state,
+                llm_settings,
                 shutdown,
                 launch_in_background,
             )))
