@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.53 — taskbar VRAM units
+
+- Display GPU VRAM in the taskbar as `GB` instead of `GiB`.
+
 ## 0.1.52 — LLM naming and RustingStrata detection
 
 - Move the editable LLM block name to Sensors and initialize it to `LLM`.

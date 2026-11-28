@@ -1396,7 +1396,7 @@ fn taskbar_items(
     }
     let gpu_line = if settings.show_gpu {
         format!(
-            "{}: {}% {} {}/{} GiB",
+            "{}: {}% {} {}/{} GB",
             name("gpu", "GPU"),
             opt(s.gpu_utilization_pct),
             s.gpu_temp_c
