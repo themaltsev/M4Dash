@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.52 — LLM naming and RustingStrata detection
+
+- Move the editable LLM block name to Sensors and initialize it to `LLM`.
+- Bypass system proxies for local LLM API calls.
+- Detect the loaded RustingStrata model through `/v1/models` when `/api/stats` is unavailable; live tokens/s still requires `/api/stats`.
+
 ## 0.1.51 — configurable LLM providers
 
 - Add a dedicated LLM tab with automatic, LM Studio, and RustingStrata provider selection and editable API addresses.

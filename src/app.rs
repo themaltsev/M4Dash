@@ -861,7 +861,16 @@ impl MonitorApp {
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.settings.show_llm, "");
-            ui.label(self.name("llm", "LLM"));
+            ui.label(crate::i18n::tr(language, "Название блока"));
+            let name = self
+                .settings
+                .custom_names
+                .entry("llm".into())
+                .or_insert_with(|| "LLM".into());
+            if name.trim().is_empty() {
+                *name = "LLM".into();
+            }
+            ui.add(egui::TextEdit::singleline(name).desired_width(150.0));
         });
         ui.label(format!(
             "{} · {} · {}",
@@ -1021,8 +1030,6 @@ impl MonitorApp {
     fn llm_page(&mut self, ui: &mut egui::Ui) {
         let language = self.settings.language;
         ui.heading(crate::i18n::tr(language, "Настройки LLM"));
-        ui.label(crate::i18n::tr(language, "Название блока"));
-        self.edit_name(ui, "llm", "LLM");
         egui::ComboBox::from_label(crate::i18n::tr(language, "Провайдер LLM"))
             .selected_text(crate::i18n::tr(
                 language,

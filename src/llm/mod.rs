@@ -31,7 +31,13 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Arc<RwLock<Settings>>) {
         let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("tokio runtime");
         rt.block_on(async move {
             let mut parser = LlmParser::default();
-            let api = reqwest::Client::builder().timeout(Duration::from_secs(2)).build().unwrap();
+            // These endpoints are local services; never route loopback traffic through a
+            // desktop HTTP proxy inherited from the environment.
+            let api = reqwest::Client::builder()
+                .no_proxy()
+                .timeout(Duration::from_secs(2))
+                .build()
+                .unwrap();
             let lm_snapshot = Arc::new(RwLock::new(LlmSnapshot::default()));
             let strata_snapshot: Arc<RwLock<Option<(Instant, LlmSnapshot)>>> = Arc::new(RwLock::new(None));
             let poll_api = api.clone();
@@ -51,7 +57,17 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Arc<RwLock<Settings>>) {
                         match poll_api.get(format!("{base}/api/stats")).send().await {
                             Ok(r) if r.status().is_success() => r.json::<RustingStrataStats>().await.ok()
                                 .map(|stats| strata_snapshot_from_stats(stats, &mut previous, now)),
-                            _ => None,
+                            // Older RustingStrata builds expose the OpenAI-compatible model
+                            // inventory but not /api/stats. Still show the loaded model name;
+                            // live TPS is only available from /api/stats.
+                            _ => match poll_api.get(format!("{base}/v1/models")).send().await {
+                                Ok(r) if r.status().is_success() => r
+                                    .json::<serde_json::Value>()
+                                    .await
+                                    .ok()
+                                    .and_then(strata_snapshot_from_models),
+                                _ => None,
+                            },
                         }
                     } else {
                         previous = None;
@@ -131,6 +147,24 @@ pub fn start(out: Arc<RwLock<LlmSnapshot>>, settings: Arc<RwLock<Settings>>) {
             }
         });
     }).expect("spawn llm collector");
+}
+
+fn strata_snapshot_from_models(root: serde_json::Value) -> Option<LlmSnapshot> {
+    let model = root
+        .get("data")?
+        .as_array()?
+        .iter()
+        .find_map(|entry| entry.get("id").and_then(serde_json::Value::as_str))?
+        .trim()
+        .to_owned();
+    (!model.is_empty()).then_some(LlmSnapshot {
+        server_available: true,
+        model: Some(model),
+        phase: LlmPhase::Idle,
+        progress_pct: None,
+        speed_tps: None,
+        final_speed_tps: None,
+    })
 }
 
 fn read_settings(settings: &Arc<RwLock<Settings>>) -> Settings {
