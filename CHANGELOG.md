@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.54 — compact taskbar LLM model name
+
+- Limit the model name in the taskbar LLM item to 15 characters, using an ellipsis when truncated.
+
 ## 0.1.53 — taskbar VRAM units
 
 - Display GPU VRAM in the taskbar as `GB` instead of `GiB`.

@@ -1416,7 +1416,7 @@ fn taskbar_items(
         format!(
             "{}: {} · {:.1} t/s",
             name("llm", "LLM"),
-            l.model.as_deref().unwrap_or("NO MODEL"),
+            compact_model_name(l.model.as_deref().unwrap_or("NO MODEL")),
             l.speed_tps.unwrap_or(0.0)
         )
     } else {
@@ -1479,6 +1479,18 @@ fn taskbar_items(
         ));
     }
     v
+}
+
+fn compact_model_name(model: &str) -> String {
+    let mut chars = model.chars();
+    let mut prefix = chars.by_ref().take(15).collect::<String>();
+    if chars.next().is_some() {
+        while matches!(prefix.chars().last(), Some('-' | '_' | '.' | ' ')) {
+            prefix.pop();
+        }
+        prefix.push('…');
+    }
+    prefix
 }
 
 fn ram_usage_percent(s: &Snapshot) -> String {
